@@ -539,7 +539,7 @@ typedef struct
     int horizontal_num_contributors;
     int vertical_num_contributors;
 
-    int ring_buffer_length_bytes;   // The length of an individual entry in the ring buffer. The total number of ring buffers is stbir__get_filter_pixel_width(filter)
+    size_t ring_buffer_length_bytes; // The length of an individual entry in the ring buffer. The total number of ring buffers is stbir__get_filter_pixel_width(filter)
     int ring_buffer_num_entries;    // Total number of entries in the ring buffer.
     int ring_buffer_first_scanline;
     int ring_buffer_last_scanline;
@@ -548,14 +548,14 @@ typedef struct
 
     float* encode_buffer; // A temporary buffer to store floats so we don't lose precision while we do multiply-adds.
 
-    int horizontal_contributors_size;
-    int horizontal_coefficients_size;
-    int vertical_contributors_size;
-    int vertical_coefficients_size;
-    int decode_buffer_size;
-    int horizontal_buffer_size;
-    int ring_buffer_size;
-    int encode_buffer_size;
+    size_t horizontal_contributors_size;
+    size_t horizontal_coefficients_size;
+    size_t vertical_contributors_size;
+    size_t vertical_coefficients_size;
+    size_t decode_buffer_size;
+    size_t horizontal_buffer_size;
+    size_t ring_buffer_size;
+    size_t encode_buffer_size;
 } stbir__info;
 
 
@@ -1674,7 +1674,7 @@ static void stbir__decode_and_resample_downsample(stbir__info* stbir_info, int n
     // Decode the nth scanline from the source image into the decode buffer.
     stbir__decode_scanline(stbir_info, n);
 
-    memset(stbir_info->horizontal_buffer, 0, stbir_info->output_w * stbir_info->channels * sizeof(float));
+    memset(stbir_info->horizontal_buffer, 0, stbir_info->horizontal_buffer_size);
 
     // Now resample it into the horizontal buffer.
     if (stbir__use_width_upsampling(stbir_info))
@@ -1900,7 +1900,7 @@ static void stbir__resample_vertical_upsample(stbir__info* stbir_info, int n)
 
     STBIR_ASSERT(stbir__use_height_upsampling(stbir_info));
 
-    memset(encode_buffer, 0, output_w * sizeof(float) * channels);
+    memset(encode_buffer, 0, (size_t) output_w * sizeof(float) * channels);
 
     // I tried reblocking this for better cache usage of encode_buffer
     // (using x_outer, k, x_inner), but it lost speed. -- stb
@@ -2246,7 +2246,7 @@ static void stbir__choose_filter(stbir__info *info, stbir_filter h_filter, stbir
     info->vertical_filter = v_filter;
 }
 
-static stbir_uint32 stbir__calculate_memory(stbir__info *info)
+static size_t stbir__calculate_memory(stbir__info *info)
 {
     int pixel_margin = stbir__get_filter_pixel_margin(info->horizontal_filter, info->horizontal_scale);
     int filter_height = stbir__get_filter_pixel_width(info->vertical_filter, info->vertical_scale);
@@ -2257,14 +2257,14 @@ static stbir_uint32 stbir__calculate_memory(stbir__info *info)
     // One extra entry because floating point precision problems sometimes cause an extra to be necessary.
     info->ring_buffer_num_entries = filter_height + 1;
 
-    info->horizontal_contributors_size = info->horizontal_num_contributors * sizeof(stbir__contributors);
-    info->horizontal_coefficients_size = stbir__get_total_horizontal_coefficients(info) * sizeof(float);
-    info->vertical_contributors_size = info->vertical_num_contributors * sizeof(stbir__contributors);
-    info->vertical_coefficients_size = stbir__get_total_vertical_coefficients(info) * sizeof(float);
-    info->decode_buffer_size = (info->input_w + pixel_margin * 2) * info->channels * sizeof(float);
-    info->horizontal_buffer_size = info->output_w * info->channels * sizeof(float);
-    info->ring_buffer_size = info->output_w * info->channels * info->ring_buffer_num_entries * sizeof(float);
-    info->encode_buffer_size = info->output_w * info->channels * sizeof(float);
+    info->horizontal_contributors_size = (size_t) info->horizontal_num_contributors * sizeof(stbir__contributors);
+    info->horizontal_coefficients_size = (size_t) stbir__get_total_horizontal_coefficients(info) * sizeof(float);
+    info->vertical_contributors_size = (size_t) info->vertical_num_contributors * sizeof(stbir__contributors);
+    info->vertical_coefficients_size = (size_t) stbir__get_total_vertical_coefficients(info) * sizeof(float);
+    info->decode_buffer_size = ((size_t) info->input_w + pixel_margin * 2) * info->channels * sizeof(float);
+    info->horizontal_buffer_size = (size_t) info->output_w * info->channels * sizeof(float);
+    info->ring_buffer_size = (size_t) info->output_w * info->channels * info->ring_buffer_num_entries * sizeof(float);
+    info->encode_buffer_size = (size_t) info->output_w * info->channels * sizeof(float);
 
     STBIR_ASSERT(info->horizontal_filter != 0);
     STBIR_ASSERT(info->horizontal_filter < STBIR__ARRAY_SIZE(stbir__filter_info_table)); // this now happens too late
@@ -2369,7 +2369,7 @@ static int stbir__resize_allocated(stbir__info *info,
     info->horizontal_filter_pixel_margin = stbir__get_filter_pixel_margin(info->horizontal_filter, info->horizontal_scale);
     info->vertical_filter_pixel_margin   = stbir__get_filter_pixel_margin(info->vertical_filter  , info->vertical_scale  );
 
-    info->ring_buffer_length_bytes = info->output_w * info->channels * sizeof(float);
+    info->ring_buffer_length_bytes = (size_t) info->output_w * info->channels * sizeof(float);
     info->decode_buffer_pixels = info->input_w + info->horizontal_filter_pixel_margin * 2;
 
 #define STBIR__NEXT_MEMPTR(current, newtype) (newtype*)(((unsigned char*)current) + current##_size)
