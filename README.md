@@ -96,7 +96,7 @@ across different machines and releases.
 
 ## Releases and updates
 
-Create and push a signed tag such as `v1.3.3` to trigger the personal macOS
+Create and push a signed tag such as `v1.0.1` to trigger the personal macOS
 release workflow. It builds an unsigned app, creates a Sparkle-signed
 `appcast.xml`, and publishes the DMG, ZIP, and appcast in the
 [Spectre Pro repository](https://github.com/skyones-0/spectrepro).
