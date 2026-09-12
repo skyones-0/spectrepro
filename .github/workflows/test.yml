@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Build and test
+    name: Build and test (${{ github.event_name }})
     runs-on: macos-26
 
     steps:
