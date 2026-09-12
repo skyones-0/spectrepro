@@ -4184,6 +4184,19 @@ fn writeConfigTemplate(path: []const u8) !void {
     try writer.flush();
 }
 
+fn migrateConfigFile(source_path: []const u8, destination_path: []const u8) !void {
+    log.info(
+        "migrating config file: source={s} destination={s}",
+        .{ source_path, destination_path },
+    );
+    try std.Io.Dir.copyFileAbsolute(
+        source_path,
+        destination_path,
+        global.io(),
+        .{ .make_path = true, .replace = false },
+    );
+}
+
 /// Load configurations from the default configuration files. The default
 /// configuration file is at `$XDG_CONFIG_HOME/spectrepro/config`.
 ///
@@ -4247,8 +4260,13 @@ pub fn loadDefaultFiles(self: *Config, alloc: Allocator) !void {
                 legacy_app_support_action != .not_found;
         } else false;
 
-        // If no configuration exists, create the preferred XDG template.
-        if (!app_support_loaded and !xdg_loaded) {
+        // Existing macOS installs migrate their configuration to the canonical
+        // XDG path while retaining the Application Support file as a backup.
+        if (app_support_loaded and !xdg_loaded) {
+            migrateConfigFile(app_support_path, xdg_path) catch |err| {
+                log.warn("error migrating config file err={}", .{err});
+            };
+        } else if (!app_support_loaded and !xdg_loaded) {
             writeConfigTemplate(xdg_path) catch |err| {
                 log.warn("error creating template config file err={}", .{err});
             };

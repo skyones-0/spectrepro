@@ -86,10 +86,11 @@ On first launch, Spectre Pro creates its canonical configuration file at:
 **Spectre Pro → Reload Configuration** to apply supported changes. Theme files
 belong in `~/.config/spectrepro/themes`.
 
-Existing installations remain compatible with the older
-`~/.config/spectrepro/config.spectrepro` and macOS Application Support
-locations. Move settings to the canonical path when convenient; do not place
-secrets in any configuration file committed to source control.
+On macOS, Spectre Pro copies an existing Application Support configuration to
+the canonical XDG path on first launch and retains the original file as a
+backup. The older `~/.config/spectrepro/config.spectrepro` path remains
+readable for compatibility. Do not place secrets in any configuration file
+committed to source control.
 
 ## Quality and performance
 

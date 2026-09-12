@@ -44,8 +44,10 @@ verified mirror with the same immutable archive and checksum is available.
 
 The canonical user configuration is `$XDG_CONFIG_HOME/spectrepro/config`, which
 defaults to `~/.config/spectrepro/config`. Spectre Pro creates this template on
-first launch when no configuration exists. The prior `config.spectrepro` name
-and macOS Application Support files remain readable as migration fallbacks.
+first launch when no configuration exists. On macOS, it copies an existing
+Application Support configuration to that canonical path and keeps the source
+file as a backup. The prior `config.spectrepro` name remains readable for
+compatibility.
 
 ## Change rules
 
