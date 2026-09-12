@@ -175,6 +175,10 @@ class AppDelegate: NSObject,
 
     @MainActor private lazy var menuShortcutManager = SpectrePro.MenuShortcutManager()
 
+    var floatingMenuItem: NSMenuItem? {
+        menuFloatOnTop
+    }
+
     override init() {
 #if DEBUG
         spectrepro = SpectrePro.App(configPath: ProcessInfo.processInfo.environment["SPECTREPRO_CONFIG_PATH"])
@@ -1280,53 +1284,6 @@ extension AppDelegate {
     }
 }
 
-// MARK: Floating Windows
-
-extension AppDelegate {
-    func syncFloatOnTopMenu(_ window: NSWindow?) {
-        guard let window = (window ?? NSApp.keyWindow) as? TerminalWindow else {
-            // If some other window became key we always turn this off
-            self.menuFloatOnTop?.state = .off
-            return
-        }
-
-        self.menuFloatOnTop?.state = window.level == .floating ? .on : .off
-    }
-
-    @IBAction func floatOnTop(_ menuItem: NSMenuItem) {
-        menuItem.state = menuItem.state == .on ? .off : .on
-        guard let window = NSApp.keyWindow else { return }
-        window.level = menuItem.state == .on ? .floating : .normal
-    }
-
-    @IBAction func useAsDefault(_ sender: NSMenuItem) {
-        let ud = UserDefaults.spectrepro
-        let key = TerminalWindow.defaultLevelKey
-        if menuFloatOnTop?.state == .on {
-            ud.set(NSWindow.Level.floating, forKey: key)
-        } else {
-            ud.removeObject(forKey: key)
-        }
-    }
-
-    @IBAction func setAsDefaultTerminal(_ sender: NSMenuItem) {
-        NSWorkspace.shared.setDefaultApplication(at: Bundle.main.bundleURL, toOpen: .unixExecutable) { error in
-            guard let error else { return }
-            Task { @MainActor in
-                let alert = NSAlert()
-                alert.messageText = "Failed to Set Default Terminal"
-                alert.informativeText = """
-                SpectrePro could not be set as the default terminal application.
-
-                Error: \(error.localizedDescription)
-                """
-                alert.alertStyle = .warning
-                alert.runModal()
-            }
-        }
-    }
-}
-
 // MARK: NSMenuItemValidation
 
 extension AppDelegate: NSMenuItemValidation {
@@ -1359,75 +1316,6 @@ extension AppDelegate: NSMenuItemValidation {
 
         default:
             return true
-        }
-    }
-}
-
-// MARK: - Termination Flow
-
-extension AppDelegate {
-    func terminate() -> NSApplication.TerminateReply {
-        let controllersNeedConfirmation = NSApplication.shared.windows
-            .compactMap { $0.windowController as? BaseTerminalController }
-            .filter { !$0.windowCanBeClosedWithoutConfirmation() }
-
-        guard !controllersNeedConfirmation.isEmpty else {
-            return .terminateNow
-        }
-
-        if controllersNeedConfirmation.count == 1 {
-            Task {
-                let response = await controllersNeedConfirmation[0].confirmCloseAsync(
-                    messageText: "Quit SpectrePro?",
-                    informativeText: "The terminal still has a running process. If you quit, the process will be killed.",
-                    confirmButtonTitle: "Terminate",
-                )
-
-                if [.OK, .alertFirstButtonReturn].contains(response) {
-                    await NSApp.reply(toApplicationShouldTerminate: true)
-                } else {
-                    await NSApp.reply(toApplicationShouldTerminate: false)
-                }
-            }
-
-            return .terminateLater
-        } else {
-            let alert = NSAlert.reviewWindowsAlert(
-                messageText: "You have \(controllersNeedConfirmation.count) windows with running processes. Do you want to review these windows before quitting?"
-            )
-
-            switch alert.runModal() {
-            case .alertFirstButtonReturn:
-                reviewWindows(controllersNeedConfirmation)
-                return .terminateLater
-            case .alertSecondButtonReturn:
-                return .terminateNow
-            default:
-                return .terminateCancel
-            }
-        }
-    }
-
-    private func reviewWindows(_ controllers: [BaseTerminalController]) {
-        Task {
-            for controller in controllers {
-                let response = await controller.confirmCloseAsync(
-                    messageText: "Quit SpectrePro?",
-                    informativeText: "The terminal still has a running process. If you quit, the process will be killed.",
-                    confirmButtonTitle: "Terminate",
-                )
-
-                if [.OK, .alertFirstButtonReturn].contains(response) {
-                    // Close this window and until next review is cancelled
-                    await controller.window?.close()
-                    continue
-                } else {
-                    await NSApp.reply(toApplicationShouldTerminate: false)
-                    // Cancel the review
-                    return
-                }
-            }
-            await NSApp.reply(toApplicationShouldTerminate: true)
         }
     }
 }

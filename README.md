@@ -96,7 +96,7 @@ across different machines and releases.
 
 ## Releases and updates
 
-Create and push a signed tag such as `v1.0.1` to trigger the personal macOS
+Create and push a signed tag such as `v1.0.3` to trigger the personal macOS
 release workflow. It builds an unsigned app, creates a Sparkle-signed
 `appcast.xml`, and publishes the DMG, ZIP, and appcast in the
 [Spectre Pro repository](https://github.com/skyones-0/spectrepro).
@@ -110,14 +110,14 @@ signature before installation.
 ### Publish a new version
 
 Use semantic versions with three components: `vMAJOR.MINOR.PATCH`. For example,
-to publish version `1.0.2`:
+to publish version `1.0.3`:
 
 ```bash
 git commit -am "Describe the change"
 git push origin main
 
-git tag -s v1.0.2 -m "Spectre Pro 1.0.2"
-git push origin v1.0.2
+git tag -s v1.0.3 -m "Spectre Pro 1.0.3"
+git push origin v1.0.3
 ```
 
 Pushing to `main` runs macOS CI. Pushing the signed tag runs the personal
