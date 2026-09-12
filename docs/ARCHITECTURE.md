@@ -40,6 +40,13 @@ External dependency URLs and upstream copyright notices are supply-chain and
 license metadata, not product names. Replace a dependency URL only after a
 verified mirror with the same immutable archive and checksum is available.
 
+## Configuration
+
+The canonical user configuration is `$XDG_CONFIG_HOME/spectrepro/config`, which
+defaults to `~/.config/spectrepro/config`. Spectre Pro creates this template on
+first launch when no configuration exists. The prior `config.spectrepro` name
+and macOS Application Support files remain readable as migration fallbacks.
+
 ## Change rules
 
 - Keep one feature or domain responsibility per source file when practical.

@@ -16,11 +16,11 @@ pub fn defaultXdgPath(alloc: Allocator) ![]const u8 {
         global.io(),
         alloc,
         &environ_map,
-        .{ .subdir = "spectrepro/config.spectrepro" },
+        .{ .subdir = "spectrepro/config" },
     );
 }
 
-/// SpectrePro <1.3.0 default path for the XDG home configuration file.
+/// Previous default path for the XDG home configuration file.
 /// Returned value must be freed by the caller.
 pub fn legacyDefaultXdgPath(alloc: Allocator) ![]const u8 {
     var environ_map = try global.environMap();
@@ -29,7 +29,7 @@ pub fn legacyDefaultXdgPath(alloc: Allocator) ![]const u8 {
         global.io(),
         alloc,
         &environ_map,
-        .{ .subdir = "spectrepro/config" },
+        .{ .subdir = "spectrepro/config.spectrepro" },
     );
 }
 
@@ -43,7 +43,7 @@ pub fn preferredXdgPath(alloc: Allocator) ![]const u8 {
         return xdg_path;
     } else |_| {}
 
-    // Try the legacy path
+    // Try the previous default path.
     errdefer alloc.free(xdg_path);
     const legacy_xdg_path = try legacyDefaultXdgPath(alloc);
     if (open(global.io(), legacy_xdg_path)) |f| {
@@ -52,8 +52,7 @@ pub fn preferredXdgPath(alloc: Allocator) ![]const u8 {
         return legacy_xdg_path;
     } else |_| {}
 
-    // Legacy path and XDG path both don't exist. Return the
-    // new one.
+    // Neither path exists. Return the preferred path.
     alloc.free(legacy_xdg_path);
     return xdg_path;
 }
@@ -103,30 +102,7 @@ pub fn preferredAppSupportPath(alloc: Allocator) ![]const u8 {
 ///
 /// The returned value must be freed by the caller.
 pub fn preferredDefaultFilePath(alloc: Allocator) ![]const u8 {
-    switch (builtin.os.tag) {
-        .macos => {
-            // macOS prefers the Application Support directory
-            // if it exists.
-            const app_support_path = try preferredAppSupportPath(alloc);
-            const app_support_file = open(global.io(), app_support_path) catch {
-                // Try the XDG path if it exists
-                const xdg_path = try preferredXdgPath(alloc);
-                const xdg_file = open(global.io(), xdg_path) catch {
-                    // If neither file exists, use app support
-                    alloc.free(xdg_path);
-                    return app_support_path;
-                };
-                xdg_file.close(global.io());
-                alloc.free(app_support_path);
-                return xdg_path;
-            };
-            app_support_file.close(global.io());
-            return app_support_path;
-        },
-
-        // All other platforms use XDG only
-        else => return try preferredXdgPath(alloc),
-    }
+    return try preferredXdgPath(alloc);
 }
 
 const OpenFileError = error{

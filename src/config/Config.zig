@@ -2609,7 +2609,7 @@ keybind: Keybinds = .{},
 
 /// When this is true, the default configuration file paths will be loaded.
 /// The default configuration file paths are currently only the XDG
-/// config path ($XDG_CONFIG_HOME/spectrepro/config.spectrepro).
+/// config path ($XDG_CONFIG_HOME/spectrepro/config).
 ///
 /// If this is false, the default configuration paths will not be loaded.
 /// This is targeted directly at using SpectrePro from the CLI in a way
@@ -3997,7 +3997,7 @@ pub fn deinit(self: *Config) void {
 ///
 ///   1. Defaults
 ///   2. XDG config dir
-///   3. "Application Support" directory (macOS only)
+///   3. Legacy "Application Support" directory (macOS fallback)
 ///   4. CLI flags
 ///   5. Recursively defined configuration files
 ///
@@ -4185,15 +4185,14 @@ fn writeConfigTemplate(path: []const u8) !void {
 }
 
 /// Load configurations from the default configuration files. The default
-/// configuration file is at `$XDG_CONFIG_HOME/spectrepro/config.spectrepro`.
+/// configuration file is at `$XDG_CONFIG_HOME/spectrepro/config`.
 ///
-/// On macOS, `$HOME/Library/Application Support/$CFBundleIdentifier/`
-/// is also loaded.
+/// On macOS, `$HOME/Library/Application Support/$CFBundleIdentifier/` is used
+/// only when no XDG configuration exists.
 ///
-/// The legacy `config` file (without extension) is first loaded,
-/// then `config.spectrepro`.
+/// The previous `config.spectrepro` filename remains supported.
 pub fn loadDefaultFiles(self: *Config, alloc: Allocator) !void {
-    // Load XDG first
+    // Load the preferred XDG path first.
     const legacy_xdg_path = try file_load.legacyDefaultXdgPath(alloc);
     defer alloc.free(legacy_xdg_path);
     const xdg_path = try file_load.defaultXdgPath(alloc);
@@ -4211,13 +4210,13 @@ pub fn loadDefaultFiles(self: *Config, alloc: Allocator) !void {
             legacy_xdg_action != .not_found;
     };
 
-    // On macOS load the app support directory as well
+    // On macOS use Application Support only as a fallback for existing installs.
     if (comptime builtin.os.tag == .macos) {
         const legacy_app_support_path = try file_load.legacyDefaultAppSupportPath(alloc);
         defer alloc.free(legacy_app_support_path);
         const app_support_path = try file_load.preferredAppSupportPath(alloc);
         defer alloc.free(app_support_path);
-        const app_support_loaded: bool = loaded: {
+        const app_support_loaded: bool = if (!xdg_loaded) loaded: {
             const legacy_app_support_action = self.loadOptionalFile(
                 alloc,
                 legacy_app_support_path,
@@ -4246,12 +4245,11 @@ pub fn loadDefaultFiles(self: *Config, alloc: Allocator) !void {
 
             break :loaded app_support_action != .not_found or
                 legacy_app_support_action != .not_found;
-        };
+        } else false;
 
-        // If both files are not found, then we create a template file.
-        // For macOS, we only create the template file in the app support
+        // If no configuration exists, create the preferred XDG template.
         if (!app_support_loaded and !xdg_loaded) {
-            writeConfigTemplate(app_support_path) catch |err| {
+            writeConfigTemplate(xdg_path) catch |err| {
                 log.warn("error creating template config file err={}", .{err});
             };
         }
