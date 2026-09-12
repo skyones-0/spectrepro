@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   benchmark:
@@ -37,6 +38,34 @@ jobs:
               /usr/bin/time -lp ./zig-out/bin/spectrepro-bench +codepoint-width 2>&1
             done
           } | tee benchmark-results/codepoint-width.txt
+
+      - name: Compare with the previous benchmark
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(awk '/^real / { print $2 }' benchmark-results/codepoint-width.txt | sort -n | awk '{ values[NR] = $1 } END { if (NR > 0) print values[int((NR + 1) / 2)] }')
+          echo "## Benchmark" >> "$GITHUB_STEP_SUMMARY"
+          echo "Current median wall time: ${current:-unavailable}s" >> "$GITHUB_STEP_SUMMARY"
+
+          previous_run=$(gh run list --workflow "macOS Benchmarks" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [[ -z "$previous_run" || -z "$current" ]]; then
+            echo "No previous benchmark baseline is available yet." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          mkdir -p benchmark-baseline
+          gh run download "$previous_run" --name "benchmark-${previous_run}" --dir benchmark-baseline
+          baseline=$(awk '/^real / { print $2 }' benchmark-baseline/codepoint-width.txt | sort -n | awk '{ values[NR] = $1 } END { if (NR > 0) print values[int((NR + 1) / 2)] }')
+          if [[ -z "$baseline" ]]; then
+            echo "The previous benchmark artifact has no usable baseline." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          change=$(awk -v current="$current" -v baseline="$baseline" 'BEGIN { printf "%.1f", ((current - baseline) / baseline) * 100 }')
+          echo "Previous median: ${baseline}s (${change}% change)" >> "$GITHUB_STEP_SUMMARY"
+          if awk -v change="$change" 'BEGIN { exit !(change > 10) }'; then
+            echo "::warning::Benchmark regression exceeds 10%; review the result before merging performance-sensitive changes."
+          fi
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
