@@ -96,16 +96,16 @@ across different machines and releases.
 
 ## Releases and updates
 
-Create and push a signed tag such as `v1.0.0` to trigger the macOS release
-workflow. It builds the app, signs it with Developer ID, notarizes the DMG,
-creates a Sparkle-signed `appcast.xml`, and publishes all three files in the
+Create and push a signed tag such as `v1.3.3` to trigger the personal macOS
+release workflow. It builds an unsigned app, creates a Sparkle-signed
+`appcast.xml`, and publishes the DMG, ZIP, and appcast in the
 [Spectre Pro repository](https://github.com/skyones-0/spectrepro).
 
-Before the first release, add these GitHub Actions secrets: `PROD_MACOS_CERTIFICATE`,
-`PROD_MACOS_CERTIFICATE_NAME`, `PROD_MACOS_CERTIFICATE_PWD`,
-`PROD_MACOS_CI_KEYCHAIN_PWD`, `APPLE_NOTARIZATION_ISSUER`,
-`APPLE_NOTARIZATION_KEY_ID`, `APPLE_NOTARIZATION_KEY`,
-`PROD_MACOS_SPARKLE_KEY`, and `PROD_MACOS_SPARKLE_KEY_PUB`.
+This personal distribution does not require a paid Apple Developer membership,
+but it is neither Developer ID signed nor notarized. Install the first release
+manually and approve it in macOS Privacy & Security if Gatekeeper warns about
+an unidentified developer. Later releases are verified by Sparkle's update
+signature before installation.
 
 ## License
 

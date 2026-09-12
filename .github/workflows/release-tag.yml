@@ -1,4 +1,4 @@
-name: Release macOS
+name: Personal macOS Release
 
 on:
   push:
@@ -15,24 +15,17 @@ permissions:
   contents: write
 
 concurrency:
-  group: macos-release
+  group: personal-macos-release
   cancel-in-progress: false
 
 jobs:
   release:
-    name: Build, sign, notarize, and publish
+    name: Build and publish personal release
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 60
     env:
-      MACOS_CERTIFICATE: ${{ secrets.PROD_MACOS_CERTIFICATE }}
-      MACOS_CERTIFICATE_NAME: ${{ secrets.PROD_MACOS_CERTIFICATE_NAME }}
-      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.PROD_MACOS_CERTIFICATE_PWD }}
-      MACOS_KEYCHAIN_PASSWORD: ${{ secrets.PROD_MACOS_CI_KEYCHAIN_PWD }}
-      APPLE_NOTARIZATION_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER }}
-      APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
-      APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
-      SPARKLE_PRIVATE_KEY: ${{ secrets.PROD_MACOS_SPARKLE_KEY }}
-      SPARKLE_PUBLIC_KEY: ${{ secrets.PROD_MACOS_SPARKLE_KEY_PUB }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPECTREPRO_SPARKLE_PRIVATE_KEY }}
+      SPARKLE_PUBLIC_KEY: ${{ secrets.SPECTREPRO_SPARKLE_PUBLIC_KEY }}
     steps:
       - name: Checkout release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,22 +43,8 @@ jobs:
 
           [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           git rev-parse --verify "refs/tags/${release_tag}^{commit}" >/dev/null
-
-          for secret_name in \
-            MACOS_CERTIFICATE \
-            MACOS_CERTIFICATE_NAME \
-            MACOS_CERTIFICATE_PASSWORD \
-            MACOS_KEYCHAIN_PASSWORD \
-            APPLE_NOTARIZATION_ISSUER \
-            APPLE_NOTARIZATION_KEY_ID \
-            APPLE_NOTARIZATION_KEY \
-            SPARKLE_PRIVATE_KEY \
-            SPARKLE_PUBLIC_KEY; do
-            [[ -n "${!secret_name}" ]] || {
-              echo "Missing required repository secret: ${secret_name}" >&2
-              exit 1
-            }
-          done
+          [[ -n "$SPARKLE_PRIVATE_KEY" ]]
+          [[ -n "$SPARKLE_PUBLIC_KEY" ]]
 
           echo "RELEASE_TAG=${release_tag}" >> "$GITHUB_ENV"
           echo "SPECTREPRO_VERSION=${release_tag#v}" >> "$GITHUB_ENV"
@@ -85,7 +64,7 @@ jobs:
             -Demit-macos-app=false \
             -Dversion-string="$SPECTREPRO_VERSION"
 
-      - name: Build Spectre Pro.app
+      - name: Build unsigned Spectre Pro.app
         run: |
           cd macos
           xcodebuild \
@@ -107,74 +86,16 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $SPARKLE_PUBLIC_KEY" "$plist_path"
           /usr/libexec/PlistBuddy -c "Delete :SUEnableAutomaticChecks" "$plist_path" || true
 
-      - name: Import Developer ID certificate
-        run: |
-          printf '%s' "$MACOS_CERTIFICATE" | base64 -D > certificate.p12
-          security create-keychain -p "$MACOS_KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -lut 21600 build.keychain
-          security unlock-keychain -p "$MACOS_KEYCHAIN_PASSWORD" build.keychain
-          security import certificate.p12 \
-            -k build.keychain \
-            -P "$MACOS_CERTIFICATE_PASSWORD" \
-            -T /usr/bin/codesign
-          security list-keychain -d user -s build.keychain
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s \
-            -k "$MACOS_KEYCHAIN_PASSWORD" \
-            build.keychain
-
-      - name: Sign Spectre Pro.app
+      - name: Create personal release archives
         run: |
           app_path="macos/build/Release/SpectrePro.app"
-          sign_path() {
-            local path="$1"
-            if [[ -e "$path" ]]; then
-              /usr/bin/codesign --force --options runtime --sign "$MACOS_CERTIFICATE_NAME" "$path"
-            fi
-          }
-
-          sign_path "$app_path/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc"
-          sign_path "$app_path/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc"
-          sign_path "$app_path/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
-          sign_path "$app_path/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app"
-          sign_path "$app_path/Contents/Frameworks/Sparkle.framework"
-          sign_path "$app_path/Contents/PlugIns/DockTilePlugin.plugin"
-          /usr/bin/codesign \
-            --force \
-            --options runtime \
-            --timestamp \
-            --entitlements macos/SpectrePro.entitlements \
-            --sign "$MACOS_CERTIFICATE_NAME" \
-            "$app_path"
-          /usr/bin/codesign --verify --deep --strict --verbose=2 "$app_path"
-
-      - name: Create and notarize DMG
-        run: |
-          app_path="macos/build/Release/SpectrePro.app"
-          dmg_path="$RUNNER_TEMP/SpectrePro.dmg"
           hdiutil create \
             -volname "Spectre Pro" \
             -srcfolder "$app_path" \
             -ov \
             -format UDZO \
-            "$dmg_path"
-
-          printf '%s' "$APPLE_NOTARIZATION_KEY" > notarization_key.p8
-          xcrun notarytool store-credentials notarytool-profile \
-            --key notarization_key.p8 \
-            --key-id "$APPLE_NOTARIZATION_KEY_ID" \
-            --issuer "$APPLE_NOTARIZATION_ISSUER"
-          xcrun notarytool submit "$dmg_path" --keychain-profile notarytool-profile --wait
-          xcrun stapler staple "$dmg_path"
-          xcrun stapler staple "$app_path"
-          mv "$dmg_path" SpectrePro.dmg
-
-      - name: Create ZIP archive
-        run: |
-          ditto -c -k --keepParent \
-            macos/build/Release/SpectrePro.app \
-            SpectrePro-macos-universal.zip
+            SpectrePro.dmg
+          ditto -c -k --keepParent "$app_path" SpectrePro-macos-universal.zip
 
       - name: Set up Sparkle tools
         env:
