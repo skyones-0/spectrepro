@@ -186,6 +186,8 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 }
 
 private struct UpdateOverlay: View {
+    private let sidebarToggleReservedWidth: CGFloat = 54
+
     var body: some View {
         if let appDelegate = NSApp.delegate as? AppDelegate {
             VStack {
@@ -195,7 +197,7 @@ private struct UpdateOverlay: View {
                     Spacer()
                     UpdatePill(model: appDelegate.updateViewModel)
                         .padding(.bottom, 9)
-                        .padding(.trailing, 9)
+                        .padding(.trailing, sidebarToggleReservedWidth)
                 }
             }
         }
@@ -236,4 +238,3 @@ struct DebugBuildWarningView: View {
         }
     }
 }
-
