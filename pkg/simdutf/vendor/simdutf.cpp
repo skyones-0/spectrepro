@@ -2404,10 +2404,11 @@ template <typename T> struct simd8x64 {
   }
 
   simdutf_really_inline void store_ascii_as_utf32(char32_t *ptr) const {
-    this->chunks[0].store_ascii_as_utf32_tbl(ptr + sizeof(simd8<T>) * 0);
-    this->chunks[1].store_ascii_as_utf32_tbl(ptr + sizeof(simd8<T>) * 1);
-    this->chunks[2].store_ascii_as_utf32_tbl(ptr + sizeof(simd8<T>) * 2);
-    this->chunks[3].store_ascii_as_utf32_tbl(ptr + sizeof(simd8<T>) * 3);
+    char32_t *output = ptr;
+    for (const auto &chunk : this->chunks) {
+      chunk.store_ascii_as_utf32_tbl(output);
+      output += simd8<T>::SIZE;
+    }
   }
 
   simdutf_really_inline uint64_t to_bitmask() const {
