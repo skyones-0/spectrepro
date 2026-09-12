@@ -149,6 +149,9 @@ test **Check for Updates…** once on a Mac with the prior release installed.
 No new workflow is necessary for the next version—only a new signed version
 tag.
 
+For the complete, repeatable procedure—from planning an Issue through the
+Sparkle acceptance test—see [the release runbook](docs/RELEASING.md).
+
 ## Project structure
 
 - `macos/Sources/Features` — product features grouped by responsibility.
