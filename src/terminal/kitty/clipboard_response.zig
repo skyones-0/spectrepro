@@ -260,7 +260,7 @@ test "response: key order type,status,loc,id,mime,pw and payload" {
     }).encode(&writer);
     try testing.expectEqualStrings(
         "\x1b]5522;type=read:status=DATA:loc=primary:id=x" ++
-            ":mime=dGV4dC9wbGFpbg==:pw=b3Rw;R2hvc3R0eQ==\x1b\\",
+            ":mime=dGV4dC9wbGFpbg==:pw=b3Rw;U3BlY3RyZVBybw==\x1b\\",
         writer.buffered(),
     );
 }
@@ -335,7 +335,7 @@ test "read success: data chunks under requested mime" {
     }).encode(&writer);
     try testing.expectEqualStrings(
         "\x1b]5522;type=read:status=OK\x1b\\" ++
-            "\x1b]5522;type=read:status=DATA:mime=dGV4dC9wbGFpbg==;R2hvc3R0eQ==\x1b\\" ++
+            "\x1b]5522;type=read:status=DATA:mime=dGV4dC9wbGFpbg==;U3BlY3RyZVBybw==\x1b\\" ++
             "\x1b]5522;type=read:status=DONE\x1b\\",
         writer.buffered(),
     );

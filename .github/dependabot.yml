@@ -6,8 +6,3 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every weekday
       interval: "daily"
-
-  - package-ecosystem: "swift"
-    directory: "/macos/SpectrePro.xcodeproj/project.xcworkspace/xcshareddata/swiftpm"
-    schedule:
-      interval: "weekly"

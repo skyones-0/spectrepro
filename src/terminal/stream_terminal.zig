@@ -3759,8 +3759,8 @@ test "kitty clipboard write transaction round trip" {
     // Begin a write, stream two MIME types (one chunked), alias the
     // plain text, and commit. Only the commit produces a response.
     s.nextSlice("\x1B]5522;type=write:id=42\x1B\\");
-    s.nextSlice("\x1B]5522;type=wdata:mime=dGV4dC9wbGFpbg==;R2hvc3Q=\x1B\\"); // "Ghost"
-    s.nextSlice("\x1B]5522;type=wdata:mime=dGV4dC9wbGFpbg==;dHk=\x1B\\"); // "ty"
+    s.nextSlice("\x1B]5522;type=wdata:mime=dGV4dC9wbGFpbg==;U3BlY3RyZQ==\x1B\\"); // "Spectre"
+    s.nextSlice("\x1B]5522;type=wdata:mime=dGV4dC9wbGFpbg==;UHJv\x1B\\"); // "Pro"
     s.nextSlice("\x1B]5522;type=wdata:mime=dGV4dC9odG1s;PGI+aGk8L2I+\x1B\\"); // "<b>hi</b>"
     // Alias "TEXT UTF8_STRING" -> text/plain.
     s.nextSlice("\x1B]5522;type=walias:mime=dGV4dC9wbGFpbg==;VEVYVCBVVEY4X1NUUklORw==\x1B\\");
@@ -3964,7 +3964,7 @@ test "kitty clipboard read round trip" {
     try testing.expectEqualStrings(
         "\x1B]5522;type=read:status=OK:loc=primary:id=r1\x1B\\" ++
             "\x1B]5522;type=read:status=DATA:id=r1:mime=Lg==;dGV4dC9wbGFpbiB0ZXh0L2h0bWwK\x1B\\" ++
-            "\x1B]5522;type=read:status=DATA:id=r1:mime=dGV4dC9wbGFpbg==;R2hvc3R0eQ==\x1B\\" ++
+            "\x1B]5522;type=read:status=DATA:id=r1:mime=dGV4dC9wbGFpbg==;U3BlY3RyZVBybw==\x1B\\" ++
             "\x1B]5522;type=read:status=DATA:id=r1:mime=dGV4dC9odG1s;PGI+aGk8L2I+\x1B\\" ++
             "\x1B]5522;type=read:status=DONE:id=r1\x1B\\",
         S.responseSlice(),
@@ -3979,7 +3979,7 @@ test "kitty clipboard read round trip" {
     try testing.expect(!S.last_read_list);
     try testing.expectEqualStrings(
         "\x1B]5522;type=read:status=OK:id=r2\x07" ++
-            "\x1B]5522;type=read:status=DATA:id=r2:mime=dGV4dC9wbGFpbg==;R2hvc3R0eQ==\x07" ++
+            "\x1B]5522;type=read:status=DATA:id=r2:mime=dGV4dC9wbGFpbg==;U3BlY3RyZVBybw==\x07" ++
             "\x1B]5522;type=read:status=DONE:id=r2\x07",
         S.responseSlice(),
     );
@@ -6336,7 +6336,7 @@ test "paste: mode 5522 sends an event the program can read with" {
     try testing.expectEqualStrings("Paste event", S.readName());
     try testing.expectEqualStrings(
         "\x1b]5522;type=read:status=OK\x1b\\" ++
-            "\x1b]5522;type=read:status=DATA:mime=dGV4dC9wbGFpbg==;R2hvc3R0eQ==\x1b\\" ++
+            "\x1b]5522;type=read:status=DATA:mime=dGV4dC9wbGFpbg==;U3BlY3RyZVBybw==\x1b\\" ++
             "\x1b]5522;type=read:status=DONE\x1b\\",
         S.written.items,
     );

@@ -34,7 +34,7 @@ jobs:
 
       - name: Install Zig
         run: |
-          brew install zig
+          arch -arm64 brew install zig
           test "$(zig version)" = "0.16.0"
 
       - name: Build analysis target

@@ -336,7 +336,7 @@ test "write: basic transaction" {
     var state: WriteState = try .init(alloc, &begin_meta, .{});
     defer state.deinit(alloc);
 
-    try state.data(alloc, &.{ .op = .wdata, .mime = "text/plain" }, "R2hvc3R0eQ=="); // "SpectrePro"
+    try state.data(alloc, &.{ .op = .wdata, .mime = "text/plain" }, "U3BlY3RyZVBybw=="); // "SpectrePro"
 
     const committed = try state.commit(alloc);
     defer committed.deinit(alloc);
@@ -547,7 +547,7 @@ test "write: aliases resolve at commit" {
     var state: WriteState = try .init(alloc, &begin_meta, .{});
     defer state.deinit(alloc);
 
-    try state.data(alloc, &.{ .op = .wdata, .mime = "text/plain" }, "R2hvc3R0eQ=="); // "SpectrePro"
+    try state.data(alloc, &.{ .op = .wdata, .mime = "text/plain" }, "U3BlY3RyZVBybw=="); // "SpectrePro"
 
     // Alias "TEXT UTF8_STRING" -> text/plain.
     const alias_meta: Metadata = .{ .op = .walias, .mime = "text/plain" };

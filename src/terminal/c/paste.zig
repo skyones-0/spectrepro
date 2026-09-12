@@ -504,7 +504,7 @@ test "terminal_paste event" {
     terminal_c.vt_write(t, read.ptr, read.len);
     try testing.expectEqual(@as(usize, 1), S.read_count);
     try testing.expect(S.last_read_granted);
-    try testing.expect(std.mem.indexOf(u8, S.writtenSlice(), ";R2hvc3R0eQ==\x1b\\") != null);
+    try testing.expect(std.mem.indexOf(u8, S.writtenSlice(), ";U3BlY3RyZVBybw==\x1b\\") != null);
 
     S.reset();
     terminal_c.vt_write(t, read.ptr, read.len);

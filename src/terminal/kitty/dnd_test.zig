@@ -571,7 +571,7 @@ test "dnd: kitten 0.47 conversation replay" {
     // The kitten requests the data and concludes with a copy.
     _ = try h.command("t=r:x=1", null);
     try h.expectOutput(
-        "\x1b]72;t=r:x=1:m=0;aGVsbG8gZnJvbSBnaG9zdHR5Cg==\x1b\\" ++
+        "\x1b]72;t=r:x=1:m=0;aGVsbG8gZnJvbSBzcGVjdHJlcHJvCg==\x1b\\" ++
             "\x1b]72;t=r:x=1\x1b\\",
     );
     _ = try h.command("t=r:o=1", null);
