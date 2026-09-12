@@ -107,6 +107,23 @@ manually and approve it in macOS Privacy & Security if Gatekeeper warns about
 an unidentified developer. Later releases are verified by Sparkle's update
 signature before installation.
 
+### Publish a new version
+
+Use semantic versions with three components: `vMAJOR.MINOR.PATCH`. For example,
+to publish version `1.0.2`:
+
+```bash
+git commit -am "Describe the change"
+git push origin main
+
+git tag -s v1.0.2 -m "Spectre Pro 1.0.2"
+git push origin v1.0.2
+```
+
+Pushing to `main` runs macOS CI. Pushing the signed tag runs the personal
+release workflow, which builds the app and uploads the DMG, ZIP, and signed
+appcast to GitHub Releases. No new workflow is required for later versions.
+
 ## License
 
 Spectre Pro is licensed under the Mozilla Public License 2.0. See
