@@ -11,6 +11,7 @@ And the following environment variables to be set:
     - SPECTREPRO_VERSION - the version number (X.Y.Z format)
     - SPECTREPRO_BUILD - the build number
     - SPECTREPRO_COMMIT - the commit hash
+    - SPECTREPRO_DOWNLOAD_URL - the public URL of the signed DMG
 
 The script will output a new appcast file called appcast_new.xml.
 """
@@ -25,7 +26,8 @@ version_dash = version.replace('.', '-')
 build = os.environ["SPECTREPRO_BUILD"]
 commit = os.environ["SPECTREPRO_COMMIT"]
 commit_long = os.environ["SPECTREPRO_COMMIT_LONG"]
-repo = "https://github.com/spectrepro-org/spectrepro"
+repo = "https://github.com/skyones-0/spectrepro"
+download_url = os.environ["SPECTREPRO_DOWNLOAD_URL"]
 
 # Read our sign_update output
 with open("sign_update.txt", "r") as f:
@@ -99,7 +101,7 @@ at <a href="https://spectrepro.org/docs/install/release-notes/{version_dash}">sp
 </p>
 """
 elem = ET.SubElement(item, "enclosure")
-elem.set("url", f"https://release.files.spectrepro.org/{version}/SpectrePro.dmg")
+elem.set("url", download_url)
 elem.set("type", "application/octet-stream")
 for key, value in attrs.items():
     elem.set(key, value)

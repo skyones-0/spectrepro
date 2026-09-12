@@ -96,10 +96,16 @@ across different machines and releases.
 
 ## Releases and updates
 
-Releases are distributed from the
-[Spectre Pro repository](https://github.com/skyones-0/spectrepro). Automatic
-updates require a published, Sparkle-signed archive and a matching signed entry
-in `appcast.xml`.
+Create and push a signed tag such as `v1.0.0` to trigger the macOS release
+workflow. It builds the app, signs it with Developer ID, notarizes the DMG,
+creates a Sparkle-signed `appcast.xml`, and publishes all three files in the
+[Spectre Pro repository](https://github.com/skyones-0/spectrepro).
+
+Before the first release, add these GitHub Actions secrets: `PROD_MACOS_CERTIFICATE`,
+`PROD_MACOS_CERTIFICATE_NAME`, `PROD_MACOS_CERTIFICATE_PWD`,
+`PROD_MACOS_CI_KEYCHAIN_PWD`, `APPLE_NOTARIZATION_ISSUER`,
+`APPLE_NOTARIZATION_KEY_ID`, `APPLE_NOTARIZATION_KEY`,
+`PROD_MACOS_SPARKLE_KEY`, and `PROD_MACOS_SPARKLE_KEY_PUB`.
 
 ## License
 

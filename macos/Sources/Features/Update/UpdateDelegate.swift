@@ -12,7 +12,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
         // do this instead.
         switch appDelegate.spectrepro.config.autoUpdateChannel {
         case .tip: return "https://raw.githubusercontent.com/skyones-0/spectrepro/main/appcast-tip.xml"
-        case .stable: return "https://raw.githubusercontent.com/skyones-0/spectrepro/main/appcast.xml"
+        case .stable: return "https://github.com/skyones-0/spectrepro/releases/latest/download/appcast.xml"
         }
     }
 
