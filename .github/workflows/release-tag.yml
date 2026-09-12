@@ -23,7 +23,7 @@ concurrency:
 jobs:
   release:
     name: Build and publish personal release
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       SPARKLE_PRIVATE_KEY: ${{ secrets.SPECTREPRO_SPARKLE_PRIVATE_KEY }}
