@@ -27,10 +27,20 @@ jobs:
           test "$(zig version)" = "0.16.0"
 
       - name: Build Zig core
-        run: zig build -Demit-macos-app=false
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            zig build -Demit-macos-app=false -Dversion-string="${GITHUB_REF_NAME#v}"
+          else
+            zig build -Demit-macos-app=false
+          fi
 
       - name: Test Zig core
-        run: zig build test
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            zig build test -Dversion-string="${GITHUB_REF_NAME#v}"
+          else
+            zig build test
+          fi
 
       - name: Test macOS app
         run: |

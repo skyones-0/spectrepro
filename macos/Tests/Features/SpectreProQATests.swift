@@ -61,9 +61,14 @@ struct SpectreProQATests {
 
     @Test func testRebrandedAssetsExistence() {
         let fm = FileManager.default
+        let repositoryURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
 
         // Verify root Spectre.icns exists and has content
-        let icnsURL = URL(fileURLWithPath: "/Users/jaraujo/Developer/spectrepro/images/Spectre.icns")
+        let icnsURL = repositoryURL.appendingPathComponent("images/Spectre.icns")
         #expect(fm.fileExists(atPath: icnsURL.path))
 
         if let attrs = try? fm.attributesOfItem(atPath: icnsURL.path),
@@ -73,7 +78,7 @@ struct SpectreProQATests {
         }
 
         // Verify AppIconImage assets exist in Assets.xcassets
-        let appIconDir = "/Users/jaraujo/Developer/spectrepro/macos/Assets.xcassets/AppIconImage.imageset"
+        let appIconDir = repositoryURL.appendingPathComponent("macos/Assets.xcassets/AppIconImage.imageset").path
         #expect(fm.fileExists(atPath: "\(appIconDir)/macOS-AppIcon-1024px.png"))
         #expect(fm.fileExists(atPath: "\(appIconDir)/macOS-AppIcon-512px.png"))
         #expect(fm.fileExists(atPath: "\(appIconDir)/macOS-AppIcon-256px-128pt@2x.png"))
@@ -81,7 +86,12 @@ struct SpectreProQATests {
 
     @Test func testAlternateIconsAllRebranded() {
         let fm = FileManager.default
-        let baseDir = "/Users/jaraujo/Developer/spectrepro/macos/Assets.xcassets/Alternate Icons"
+        let repositoryURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let baseDir = repositoryURL.appendingPathComponent("macos/Assets.xcassets/Alternate Icons").path
         let variants = [
             "BlueprintImage.imageset",
             "ChalkboardImage.imageset",

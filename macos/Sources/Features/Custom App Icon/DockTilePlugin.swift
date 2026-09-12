@@ -68,9 +68,11 @@ class DockTilePlugin: NSObject, NSDockTilePlugIn {
 
 private extension NSDockTile {
     func setIcon(_ newIcon: NSImage?) {
+        let sendableIcon = UncheckedSendable(value: newIcon)
+
         // Update the Dock tile on the main thread.
         DispatchQueue.main.async {
-            guard let newIcon else {
+            guard let newIcon = sendableIcon.value else {
                 self.contentView = nil
                 self.display()
                 return
@@ -82,6 +84,10 @@ private extension NSDockTile {
             self.display()
         }
     }
+}
+
+private struct UncheckedSendable<Value>: @unchecked Sendable {
+    let value: Value
 }
 
 // This is required because of the DispatchQueue call above. This doesn't
