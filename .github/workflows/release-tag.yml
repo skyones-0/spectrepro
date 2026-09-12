@@ -48,11 +48,13 @@ jobs:
           [[ -n "$SPARKLE_PRIVATE_KEY" ]]
           [[ -n "$SPARKLE_PUBLIC_KEY" ]]
 
-          echo "RELEASE_TAG=${release_tag}" >> "$GITHUB_ENV"
-          echo "SPECTREPRO_VERSION=${release_tag#v}" >> "$GITHUB_ENV"
-          echo "SPECTREPRO_BUILD=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
-          echo "SPECTREPRO_COMMIT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-          echo "SPECTREPRO_COMMIT_LONG=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          {
+            echo "RELEASE_TAG=${release_tag}"
+            echo "SPECTREPRO_VERSION=${release_tag#v}"
+            echo "SPECTREPRO_BUILD=$(git rev-list --count HEAD)"
+            echo "SPECTREPRO_COMMIT=$(git rev-parse --short HEAD)"
+            echo "SPECTREPRO_COMMIT_LONG=$(git rev-parse HEAD)"
+          } >> "$GITHUB_ENV"
 
       - name: Install Zig
         run: |
@@ -125,10 +127,24 @@ jobs:
           grep -q 'sparkle:edSignature=' appcast.xml
           shasum -a 256 SpectrePro.dmg SpectrePro-macos-universal.zip > SHA256SUMS.txt
 
+      - name: Generate release SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: macos/build/Release/SpectrePro.app
+          format: spdx-json
+          output-file: SpectrePro.sbom.spdx.json
+          upload-artifact: false
+
       - name: Attest release archive provenance
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: SpectrePro.dmg
+
+      - name: Attest release SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: SpectrePro.dmg
+          sbom-path: SpectrePro.sbom.spdx.json
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
@@ -141,6 +157,26 @@ jobs:
             SpectrePro-macos-universal.zip
             appcast.xml
             SHA256SUMS.txt
+            SpectrePro.sbom.spdx.json
+
+      - name: Verify published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p published-release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir published-release \
+            --pattern 'SpectrePro.dmg' \
+            --pattern 'SpectrePro-macos-universal.zip' \
+            --pattern 'appcast.xml' \
+            --pattern 'SHA256SUMS.txt' \
+            --pattern 'SpectrePro.sbom.spdx.json'
+          (
+            cd published-release
+            shasum -a 256 -c SHA256SUMS.txt
+            python3 -c 'import xml.etree.ElementTree as element_tree; element_tree.parse("appcast.xml")'
+            grep -q 'sparkle:edSignature=' appcast.xml
+            test -s SpectrePro.sbom.spdx.json
+          )
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -151,3 +187,4 @@ jobs:
             SpectrePro-macos-universal.zip
             appcast.xml
             SHA256SUMS.txt
+            SpectrePro.sbom.spdx.json

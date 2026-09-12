@@ -124,6 +124,17 @@ Pushing to `main` runs macOS CI. Pushing the signed tag runs the personal
 release workflow, which builds the app and uploads the DMG, ZIP, and signed
 appcast to GitHub Releases. No new workflow is required for later versions.
 
+### Automation triggers
+
+- Every push runs macOS CI; pull requests also run CI, CodeQL, workflow lint,
+  and dependency review.
+- Pushes to `main` run CodeQL and workflow lint.
+- Signed version tags run the release workflow, which publishes the DMG, ZIP,
+  appcast, SHA-256 checksums, SBOM, and attestations, then verifies the
+  published assets.
+- Benchmarks run weekly or manually. They compare the median wall time against
+  the previous benchmark artifact and warn when it regresses by more than 10%.
+
 ## License
 
 Spectre Pro is licensed under the Mozilla Public License 2.0. See
