@@ -37,6 +37,9 @@ jobs:
           arch -arm64 brew install zig
           test "$(zig version)" = "0.16.0"
 
+      - name: Install Metal toolchain
+        run: xcodebuild -downloadComponent MetalToolchain
+
       - name: Build analysis target
         run: |
           zig build -Demit-macos-app=false

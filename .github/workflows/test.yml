@@ -69,7 +69,7 @@ jobs:
           app_path="$RUNNER_TEMP/SpectreProDerivedData/Build/Products/Debug/SpectrePro.app"
           test -x "$app_path/Contents/MacOS/spectrepro"
           plutil -lint "$app_path/Contents/Info.plist"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Contents/Info.plist" | grep -Fx 'co.skyones.spectrepro'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Contents/Info.plist" | grep -Fx 'co.skyones.spectrepro.debug'
 
       - name: Upload test results
         if: always()
