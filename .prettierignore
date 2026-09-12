@@ -1,0 +1,31 @@
+# Docs: https://prettier.io/docs/en/ignore.html
+flake.lock
+vendor/
+**/*.html
+zig-cache/
+zig-out/
+
+# jujutsu
+.jj/
+
+# macos is managed by XCode GUI
+macos/
+
+# Xcode asset catalogs
+**/*.xcassets/
+
+# produced by Icon Composer on macOS
+images/SpectrePro.icon/icon.json
+
+# website dev run
+website/.next
+
+# shaders
+*.frag
+
+# fuzz corpus files
+test/fuzz-libspectrepro/corpus/
+test/fuzz-libspectrepro/afl-out/
+
+# Swift example build outputs
+example/swift-vt-xcframework/.build/

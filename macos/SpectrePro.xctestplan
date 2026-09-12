@@ -1,0 +1,49 @@
+{
+  "configurations" : [
+    {
+      "id" : "22895D97-CB9E-4452-A6AA-702CC0152032",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : "-NS🐞 YES"
+      }
+    ],
+    "environmentVariableEntries" : [
+      {
+        "key" : "SPECTREPRO_CONFIG_PATH",
+        "value" : "\/tmp\/SpectrePro\/testing_config.spectrepro"
+      }
+    ],
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:SpectrePro.xcodeproj",
+      "identifier" : "A5B30530299BEAAA0047F10C",
+      "name" : "SpectrePro"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:SpectrePro.xcodeproj",
+        "identifier" : "A54F45F22E1F047A0046BD5C",
+        "name" : "SpectreProTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:SpectrePro.xcodeproj",
+        "identifier" : "810ACC9E2E9D3301004F8F92",
+        "name" : "SpectreProUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

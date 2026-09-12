@@ -1,0 +1,7 @@
+// This makes SpectrePro available to the XCode build for the macOS app.
+// We append "Kit" to it not to be cute, but because targets have to have
+// unique names and we use SpectrePro for other things.
+module SpectreProKit {
+    umbrella header "spectrepro.h"
+    export *
+}
