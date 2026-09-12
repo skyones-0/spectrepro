@@ -1,65 +1,97 @@
 # Spectre Pro
 
-**Spectre Pro** is a native macOS terminal and infrastructure console for
-operators who need a fast workspace without giving up context, safety, or
-native system integration.
+**Spectre Pro** is a native terminal and infrastructure workspace for macOS.
+It combines a Zig terminal core, Metal rendering, and a Swift/AppKit interface
+so operators can work with shells, long-running sessions, logs, and repeatable
+commands without leaving the macOS environment.
 
-Built with a Zig terminal core, a Metal renderer, and a Swift/AppKit macOS
-application, Spectre Pro is designed for sustained interactive work: operating
-production systems, following high-volume logs, managing long-lived sessions,
-and moving between focused and full-screen workflows.
+[Releases](https://github.com/skyones-0/spectrepro/releases) ·
+[Security policy](SECURITY.md) ·
+[Architecture](docs/ARCHITECTURE.md) ·
+[CI status](https://github.com/skyones-0/spectrepro/actions/workflows/test.yml)
 
-## Product philosophy
+## Built for focused operations
 
-Spectre Pro is guided by four principles:
+Spectre Pro is designed around four practical principles:
 
-1. **Keep the operator in flow.** Terminal, sessions, quick commands, tasks,
-   and split views belong in one keyboard-friendly workspace.
-2. **Make safety visible.** Secure input, confirmation flows, clear session
-   state, and native macOS permissions should make consequential actions easier
+1. **Keep the operator in flow.** Tabs, panes, sessions, tasks, quick
+   commands, and a Quick Terminal keep related work in one keyboard-friendly
+   workspace.
+2. **Make safety visible.** Secure keyboard entry, clipboard confirmation,
+   session state, and native permission flows make consequential actions easier
    to understand.
-3. **Respect the platform.** Menus, services, accessibility, keyboard
-   shortcuts, fullscreen behavior, and Spaces are macOS features—not
-   afterthoughts.
-4. **Measure before claiming speed.** Performance claims are only meaningful
-   when the workload, hardware, build mode, and measurement method are
-   reproducible.
+3. **Respect macOS.** Menus, Services, accessibility, shortcuts, Spaces,
+   fullscreen, AppleScript, and App Intents are part of the product—not a
+   compatibility layer.
+4. **Measure before claiming speed.** Performance comparisons require a
+   reproducible workload, hardware description, build mode, and baseline.
 
-## Highlights
+## Capabilities
 
-- Metal-accelerated terminal rendering backed by a native Zig core.
-- Tabs, panes, split layouts, window styles, and a Quick Terminal for focused
-  work across macOS Spaces.
-- Session management, command notifications, a task overlay, and quick-command
-  libraries for repeatable operator workflows.
-- Configurable themes, fonts, keybindings, shell integration, services, and
-  AppleScript/App Intents integration.
-- Secure keyboard input, clipboard confirmation, keep-awake controls, hardware
-  access, port detection, and process monitoring.
-- Native macOS menus, accessibility support, custom app icons, and support for
-  system appearance changes.
+- Metal-accelerated terminal rendering with a native Zig core.
+- Tabs, split panes, window styles, and a Quick Terminal for work across
+  macOS Spaces.
+- Session management, command notifications, task overlay, quick-command
+  libraries, process monitoring, and port detection.
+- Configurable fonts, themes, keybindings, shell integration, custom icons,
+  Services, AppleScript, and App Intents.
+- Secure input, clipboard confirmation, keep-awake controls, and native
+  accessibility support.
 
-## Requirements
+## Install
+
+### Personal release
+
+1. Download `SpectrePro.dmg` from the
+   [latest release](https://github.com/skyones-0/spectrepro/releases/latest).
+2. Open the disk image and drag `Spectre Pro.app` to `/Applications`.
+3. Open **Spectre Pro** from Applications.
+
+This project uses personal distribution: releases are not Developer ID signed
+or notarized. macOS may ask you to approve the first launch in **System
+Settings → Privacy & Security**. Once installed, **Spectre Pro → Check for
+Updates…** uses Sparkle metadata to verify and install later releases.
+
+### Build from source
+
+Requirements:
 
 - macOS 13 or later
 - Xcode with the macOS SDK and Metal toolchain
-- Zig 0.16.0
-
-## Build and run
+- Zig `0.16.0`
 
 ```bash
+git clone https://github.com/skyones-0/spectrepro.git
+cd spectrepro
 zig build
 open zig-out/SpectrePro.app
 ```
 
-To install a local debug build:
+For a local debug installation:
 
 ```bash
 ditto zig-out/SpectrePro.app "/Applications/Spectre Pro.app"
 open "/Applications/Spectre Pro.app"
 ```
 
-## Tests
+## Configuration
+
+On first launch, Spectre Pro creates its canonical configuration file at:
+
+```text
+~/.config/spectrepro/config
+```
+
+`$XDG_CONFIG_HOME` is respected when it is set. Edit this file, then select
+**Spectre Pro → Reload Configuration** to apply supported changes. Theme files
+belong in `~/.config/spectrepro/themes`.
+
+Existing installations remain compatible with the older
+`~/.config/spectrepro/config.spectrepro` and macOS Application Support
+locations. Move settings to the canonical path when convenient; do not place
+secrets in any configuration file committed to source control.
+
+## Quality and performance
 
 Run the Zig test suite:
 
@@ -67,75 +99,67 @@ Run the Zig test suite:
 zig build test
 ```
 
-The macOS project also contains unit and UI test targets. Use the build helper
-in `macos/build.nu` or open `macos/SpectrePro.xcodeproj` in Xcode to run the
-appropriate target for your configuration.
+Open `macos/SpectrePro.xcodeproj` in Xcode, or use `macos/build.nu`, to run the
+macOS unit and UI targets for the selected configuration.
 
-## Performance and stress testing
-
-The repository includes a benchmark executable for terminal stream processing,
-escape-sequence parsing, Unicode handling, compression, snapshots, key
-encoding, and data-structure workloads. Build it in an optimized mode before
-recording results:
+The benchmark executable covers terminal stream processing, escape-sequence
+parsing, Unicode, compression, snapshots, key encoding, and data structures:
 
 ```bash
 zig build -Demit-bench -Doptimize=ReleaseFast -Demit-macos-app=false
 ./zig-out/bin/spectrepro-bench --help
 ```
 
-Benchmark sources live in `src/benchmark`. For any published comparison,
-record the following alongside the output:
+When comparing revisions, record the Mac model, chip, RAM, macOS version,
+power mode, commit, Zig version, build options, exact command, warm-up, and
+median result. The scheduled benchmark workflow compares its median with the
+previous successful baseline and warns on a regression greater than 10%.
 
-- Mac model, chip, RAM, macOS version, and power mode
-- Spectre Pro commit, Zig version, and build options
-- Exact benchmark command, corpus, warm-up procedure, and repetitions
-- Median, dispersion, and the baseline or previous revision being compared
+## Delivery pipeline
 
-This policy makes regressions actionable and keeps performance reports useful
-across different machines and releases.
+GitHub Actions protects the project at each stage:
 
-## Releases and updates
+| Event | What runs | Outcome |
+| --- | --- | --- |
+| Pull request | macOS build and tests, CodeQL, workflow lint, dependency review | A reviewed quality gate before `main` |
+| Push to `main` | macOS CI, CodeQL, workflow lint | Continuous validation of the integration branch |
+| Signed `vX.Y.Z` tag | Release build, Sparkle appcast, checksums, SBOM, provenance attestations | A GitHub Release with update assets |
+| Weekly or manual dispatch | Benchmarks | A performance comparison against the previous run |
 
-Create and push a signed tag such as `v1.0.3` to trigger the personal macOS
-release workflow. It builds an unsigned app, creates a Sparkle-signed
-`appcast.xml`, and publishes the DMG, ZIP, and appcast in the
-[Spectre Pro repository](https://github.com/skyones-0/spectrepro).
+The release workflow publishes `SpectrePro.dmg`, a ZIP archive, `appcast.xml`,
+`SHA256SUMS.txt`, and an SPDX SBOM. It downloads those published assets again
+and verifies their checksums and update metadata before completing.
 
-This personal distribution does not require a paid Apple Developer membership,
-but it is neither Developer ID signed nor notarized. Install the first release
-manually and approve it in macOS Privacy & Security if Gatekeeper warns about
-an unidentified developer. Later releases are verified by Sparkle's update
-signature before installation.
+## Publish a release
 
-### Publish a new version
-
-Use semantic versions with three components: `vMAJOR.MINOR.PATCH`. For example,
-to publish version `1.0.3`:
+Use semantic versions with three components. For example, after updating the
+versioned project files for `1.0.3` and merging the change into `main`:
 
 ```bash
-git commit -am "Describe the change"
-git push origin main
-
+git switch main
+git pull --ff-only origin main
 git tag -s v1.0.3 -m "Spectre Pro 1.0.3"
 git push origin v1.0.3
 ```
 
-Pushing to `main` runs macOS CI. Pushing the signed tag runs the personal
-release workflow, which builds the app and uploads the DMG, ZIP, and signed
-appcast to GitHub Releases. No new workflow is required for later versions.
+The signed tag starts the release workflow. Wait for **Personal macOS Release**
+to finish successfully, then verify the published files in GitHub Releases and
+test **Check for Updates…** once on a Mac with the prior release installed.
+No new workflow is necessary for the next version—only a new signed version
+tag.
 
-### Automation triggers
+## Project structure
 
-- Every push runs macOS CI; pull requests also run CI, CodeQL, workflow lint,
-  and dependency review.
-- Pushes to `main` run CodeQL and workflow lint.
-- Signed version tags run the release workflow, which publishes the DMG, ZIP,
-  appcast, SHA-256 checksums, SBOM, and attestations, then verifies the
-  published assets.
-- Benchmarks run weekly or manually. They compare the median wall time against
-  the previous benchmark artifact and warn when it regresses by more than 10%.
+- `macos/Sources/Features` — product features grouped by responsibility.
+- `macos/Sources/App` — application lifecycle, menu, and window coordination.
+- `macos/Sources/SpectrePro/Surface View` — AppKit terminal surface adapters.
+- `src` — Zig terminal engine, renderer, configuration, and platform services.
+- `docs/ARCHITECTURE.md` — source boundaries and macOS-first scope policy.
+- `.github/workflows` — CI, security, benchmark, and release automation.
 
-## License
+## Security and licensing
 
-Spectre Pro is licensed under the Mozilla Public License 2.0. See
-[LICENSE](LICENSE) for the complete terms and required notices.
+Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+Spectre Pro is licensed under the Mozilla Public License 2.0; see
+[LICENSE](LICENSE). Upstream notices and third-party licenses remain in the
+repository where required.
