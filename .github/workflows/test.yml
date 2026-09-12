@@ -21,6 +21,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Restore build caches
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cache/zig
+            ~/Library/Developer/Xcode/DerivedData/SourcePackages
+          key: macos-${{ runner.arch }}-${{ hashFiles('build.zig.zon', 'macos/SpectrePro.xcodeproj/project.pbxproj', 'macos/SpectrePro.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            macos-${{ runner.arch }}-
+
       - name: Install Zig
         run: |
           brew install zig
@@ -49,6 +59,22 @@ jobs:
             -scheme SpectrePro \
             -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/SpectreProDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/SpectrePro.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
             test \
             -skip-testing SpectreProUITests
+
+      - name: Smoke check app bundle
+        run: |
+          app_path="$RUNNER_TEMP/SpectreProDerivedData/Build/Products/Debug/SpectrePro.app"
+          test -x "$app_path/Contents/MacOS/spectrepro"
+          plutil -lint "$app_path/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Contents/Info.plist" | grep -Fx 'co.skyones.spectrepro'
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SpectrePro-xcresult-${{ github.run_id }}
+          path: ${{ runner.temp }}/SpectrePro.xcresult
+          if-no-files-found: warn

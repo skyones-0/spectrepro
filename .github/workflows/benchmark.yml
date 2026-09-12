@@ -1,0 +1,45 @@
+name: macOS Benchmarks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Collect benchmark sample
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Zig
+        run: |
+          brew install zig
+          test "$(zig version)" = "0.16.0"
+
+      - name: Build benchmark tool
+        run: zig build -Demit-bench -Doptimize=ReleaseFast -Demit-macos-app=false
+
+      - name: Collect benchmark samples
+        run: |
+          mkdir benchmark-results
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            sw_vers
+            sysctl -n machdep.cpu.brand_string || true
+            for run_number in 1 2 3 4 5; do
+              echo "run=${run_number}"
+              /usr/bin/time -lp ./zig-out/bin/spectrepro-bench +codepoint-width 2>&1
+            done
+          } | tee benchmark-results/codepoint-width.txt
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-${{ github.run_id }}
+          path: benchmark-results

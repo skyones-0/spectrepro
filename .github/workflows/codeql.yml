@@ -1,0 +1,49 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze Swift and C/C++
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [swift, cpp]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.33.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: manual
+
+      - name: Install Zig
+        run: |
+          brew install zig
+          test "$(zig version)" = "0.16.0"
+
+      - name: Build analysis target
+        run: |
+          zig build -Demit-macos-app=false
+          if [[ "${{ matrix.language }}" == "swift" ]]; then
+            cd macos
+            xcodebuild -project SpectrePro.xcodeproj -target SpectrePro -configuration Debug CODE_SIGNING_ALLOWED=NO build
+          fi
+
+      - name: Analyze code
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.33.0

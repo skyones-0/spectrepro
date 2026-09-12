@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: write
+  attestations: write
+  id-token: write
 
 concurrency:
   group: personal-macos-release
@@ -117,6 +119,17 @@ jobs:
           python3 dist/macos/update_appcast_tag.py
           mv appcast_new.xml appcast.xml
 
+      - name: Validate update metadata and checksums
+        run: |
+          python3 -c 'import xml.etree.ElementTree as element_tree; element_tree.parse("appcast.xml")'
+          rg -q 'sparkle:edSignature=' appcast.xml
+          shasum -a 256 SpectrePro.dmg SpectrePro-macos-universal.zip > SHA256SUMS.txt
+
+      - name: Attest release archive provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: SpectrePro.dmg
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -127,6 +140,7 @@ jobs:
             SpectrePro.dmg
             SpectrePro-macos-universal.zip
             appcast.xml
+            SHA256SUMS.txt
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -136,3 +150,4 @@ jobs:
             SpectrePro.dmg
             SpectrePro-macos-universal.zip
             appcast.xml
+            SHA256SUMS.txt
