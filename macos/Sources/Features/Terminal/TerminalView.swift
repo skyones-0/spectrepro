@@ -186,7 +186,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 }
 
 private struct UpdateOverlay: View {
-    private let sidebarToggleReservedWidth: CGFloat = 54
+    private let sidebarToggleReservedHeight: CGFloat = 54
 
     var body: some View {
         if let appDelegate = NSApp.delegate as? AppDelegate {
@@ -196,8 +196,8 @@ private struct UpdateOverlay: View {
                 HStack {
                     Spacer()
                     UpdatePill(model: appDelegate.updateViewModel)
-                        .padding(.bottom, 9)
-                        .padding(.trailing, sidebarToggleReservedWidth)
+                        .padding(.bottom, sidebarToggleReservedHeight)
+                        .padding(.trailing, 10)
                 }
             }
         }
