@@ -2637,7 +2637,7 @@ keybind: Keybinds = .{},
 /// On Linux, if this is `true`, SpectrePro can delay quitting fully until a
 /// configurable amount of time has passed after the last window is closed.
 /// See the documentation of `quit-after-last-window-closed-delay`.
-@"quit-after-last-window-closed": bool = builtin.os.tag == .linux,
+@"quit-after-last-window-closed": bool = builtin.os.tag == .linux or builtin.os.tag == .macos,
 
 /// Controls how long SpectrePro will stay running after the last open surface has
 /// been closed. This only has an effect if `quit-after-last-window-closed` is
