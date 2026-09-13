@@ -35,7 +35,7 @@ struct SettingsView: View {
                 Text("Advanced Configuration")
                     .font(.title2.weight(.semibold))
 
-                Text("Use the configuration file for key bindings, shell integration, themes with custom colors, and every advanced Spectre Pro option. Changes made here are preserved by General settings.")
+                Text("Use the configuration file for key bindings, custom themes, and specialized options. Changes made here are preserved by the native Settings panels.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -44,8 +44,8 @@ struct SettingsView: View {
                         appDelegate.openConfig(nil)
                     }
 
-                    Button("Open Terminal Studio") {
-                        appDelegate.openConfigStudio(nil)
+                    Button("Reload Configuration") {
+                        appDelegate.reloadConfig(nil)
                     }
                 }
 
@@ -59,6 +59,7 @@ struct SettingsView: View {
         }
         .task {
             configuration.load(from: appDelegate.spectrepro)
+            configuration.loadReference(from: appDelegate.spectrepro)
         }
         .frame(minWidth: 680, idealWidth: 760, minHeight: 500, idealHeight: 580)
     }
@@ -110,10 +111,17 @@ private struct AppearanceSettingsTab: View {
             }
 
             Section("Colors & Material") {
-                TextField("Background Color", text: $configuration.backgroundColor, prompt: Text("#1E1E1E"))
-                    .textFieldStyle(.roundedBorder)
-                TextField("Foreground Color", text: $configuration.foregroundColor, prompt: Text("#FFFFFF"))
-                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    TextField("Background Color", text: $configuration.backgroundColor, prompt: Text("#1E1E1E"))
+                        .textFieldStyle(.roundedBorder)
+                    ConfigurationColorPicker(value: $configuration.backgroundColor, label: "Background Color")
+                }
+
+                HStack {
+                    TextField("Foreground Color", text: $configuration.foregroundColor, prompt: Text("#FFFFFF"))
+                        .textFieldStyle(.roundedBorder)
+                    ConfigurationColorPicker(value: $configuration.foregroundColor, label: "Foreground Color")
+                }
 
                 HStack {
                     Text("Background Opacity")
@@ -455,6 +463,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
     }
 
     func loadReference(from app: SpectrePro.App) {
+        refreshReferenceValues(from: app)
         guard referenceStatus == .idle, let executableURL = Bundle.main.executableURL else { return }
         referenceStatus = .loading
         let configurationURL = app.configurationFileURL
@@ -481,6 +490,17 @@ private final class ConfigurationSettingsModel: ObservableObject {
             get: { self.optionValues[option.key] ?? "" },
             set: { self.optionValues[option.key] = $0 }
         )
+    }
+
+    func colorValue(for option: ConfigurationOption) -> Binding<String> {
+        Binding(
+            get: { self.optionValues[option.key] ?? "" },
+            set: { self.optionValues[option.key] = $0 }
+        )
+    }
+
+    func refreshReferenceValues(from app: SpectrePro.App) {
+        optionValues = Self.readValues(at: app.configurationFileURL)
     }
 
     func apply(option: ConfigurationOption, to app: SpectrePro.App) {
@@ -516,12 +536,12 @@ private final class ConfigurationSettingsModel: ObservableObject {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard !trimmed.hasPrefix("#"), let separator = trimmed.firstIndex(of: "=") else { return nil }
                 guard trimmed[..<separator].trimmingCharacters(in: .whitespaces) == key else { return nil }
-                return normalizedValue(String(trimmed[trimmed.index(after: separator)...].trimmingCharacters(in: .whitespaces)))
+                return Self.normalizedValue(String(trimmed[trimmed.index(after: separator)...].trimmingCharacters(in: .whitespaces)))
             }
             .first
     }
 
-    private func normalizedValue(_ value: String) -> String {
+    nonisolated private static func normalizedValue(_ value: String) -> String {
         guard value.count >= 2, value.first == "\"", value.last == "\"" else { return value }
         return String(value.dropFirst().dropLast())
     }
@@ -547,7 +567,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.hasPrefix("#"), let separator = trimmed.firstIndex(of: "=") else { continue }
             let key = trimmed[..<separator].trimmingCharacters(in: .whitespaces)
-            let value = trimmed[trimmed.index(after: separator)...].trimmingCharacters(in: .whitespaces)
+            let value = Self.normalizedValue(String(trimmed[trimmed.index(after: separator)...].trimmingCharacters(in: .whitespaces)))
             values[key, default: []].append(value)
         }
 
@@ -775,6 +795,19 @@ private struct ConfigurationReferenceView: View {
                                     }
                                 }
 
+                            if ConfigurationColor.supports(option.key) {
+                                HStack {
+                                    Text("Color")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    ConfigurationColorPicker(
+                                        value: configuration.colorValue(for: option),
+                                        label: option.label
+                                    )
+                                    Spacer()
+                                }
+                            }
+
                             HStack {
                                 Text("One value per line for repeatable settings.")
                                     .font(.caption)
@@ -789,11 +822,17 @@ private struct ConfigurationReferenceView: View {
                     }
                     .navigationTitle(category?.rawValue ?? "All Settings")
                     .searchable(text: $search, prompt: "Search settings")
+                    .toolbar {
+                        Button("Refresh Values", systemImage: "arrow.clockwise") {
+                            configuration.refreshReferenceValues(from: app)
+                        }
+                    }
                 }
             }
         }
-        .task {
+        .onAppear {
             configuration.loadReference(from: app)
+            configuration.refreshReferenceValues(from: app)
         }
     }
 
@@ -816,32 +855,6 @@ private struct ConfigurationReferenceView: View {
         case .privacyAndUpdates: "lock"
         case .advanced: "slider.horizontal.3"
         }
-    }
-}
-
-final class ConfigurationStudioController: NSWindowController {
-    static let shared = ConfigurationStudioController()
-
-    func show(appDelegate: AppDelegate) {
-        if window == nil {
-            let contentView = NSHostingView(
-                rootView: SettingsView().environmentObject(appDelegate)
-            )
-            let settingsWindow = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 640, height: 500),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            settingsWindow.title = "Spectre Pro Settings"
-            settingsWindow.contentView = contentView
-            settingsWindow.minSize = NSSize(width: 580, height: 430)
-            settingsWindow.center()
-            window = settingsWindow
-        }
-
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 }
 
