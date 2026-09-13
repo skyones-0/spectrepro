@@ -1,67 +1,118 @@
-# Spectre Pro
+<p align="center">
+  <img src="images/icons/icon_256.png" width="128" alt="Spectre Pro icon">
+</p>
 
-**Spectre Pro** is a native terminal and infrastructure workspace for macOS.
-It combines a Zig terminal core, Metal rendering, and a Swift/AppKit interface
-so operators can work with shells, long-running sessions, logs, and repeatable
-commands without leaving the macOS environment.
+<h1 align="center">Spectre Pro</h1>
 
-[Releases](https://github.com/skyones-0/spectrepro/releases) ·
-[Security policy](SECURITY.md) ·
-[Architecture](docs/ARCHITECTURE.md) ·
-[CI status](https://github.com/skyones-0/spectrepro/actions/workflows/test.yml)
+<p align="center">
+  <strong>Un terminal nativo para macOS, diseñado para mantener el trabajo técnico en movimiento.</strong>
+</p>
 
-## Built for focused operations
+<p align="center">
+  <a href="https://github.com/skyones-0/spectrepro/releases/latest">Descargar</a>
+  &nbsp;·&nbsp;
+  <a href="#por-qué-spectre-pro">Producto</a>
+  &nbsp;·&nbsp;
+  <a href="#configuración">Configuración</a>
+  &nbsp;·&nbsp;
+  <a href="docs/ARCHITECTURE.md">Arquitectura</a>
+  &nbsp;·&nbsp;
+  <a href="SECURITY.md">Seguridad</a>
+</p>
 
-Spectre Pro is designed around four practical principles:
+<p align="center">
+  <a href="https://github.com/skyones-0/spectrepro/actions/workflows/test.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/skyones-0/spectrepro/test.yml?branch=main&style=flat-square&label=macOS%20CI" alt="macOS CI">
+  </a>
+  <a href="https://github.com/skyones-0/spectrepro/releases/latest">
+    <img src="https://img.shields.io/github/v/release/skyones-0/spectrepro?display_name=tag&sort=semver&style=flat-square&label=release" alt="Latest release">
+  </a>
+  <img src="https://img.shields.io/badge/platform-macOS%2013%2B-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 13 or later">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MPL--2.0-7c3aed?style=flat-square" alt="MPL 2.0 license">
+  </a>
+</p>
 
-1. **Keep the operator in flow.** Tabs, panes, sessions, tasks, quick
-   commands, and a Quick Terminal keep related work in one keyboard-friendly
-   workspace.
-2. **Make safety visible.** Secure keyboard entry, clipboard confirmation,
-   session state, and native permission flows make consequential actions easier
-   to understand.
-3. **Respect macOS.** Menus, Services, accessibility, shortcuts, Spaces,
-   fullscreen, AppleScript, and App Intents are part of the product—not a
-   compatibility layer.
-4. **Measure before claiming speed.** Performance comparisons require a
-   reproducible workload, hardware description, build mode, and baseline.
+---
 
-## Capabilities
+## Por qué Spectre Pro
 
-- Metal-accelerated terminal rendering with a native Zig core.
-- Tabs, split panes, window styles, and a Quick Terminal for work across
-  macOS Spaces.
-- Session management, command notifications, task overlay, quick-command
-  libraries, process monitoring, and port detection.
-- Configurable fonts, themes, keybindings, shell integration, custom icons,
-  Services, AppleScript, and App Intents.
-- Secure input, clipboard confirmation, keep-awake controls, and native
-  accessibility support.
+Spectre Pro reúne el terminal, las sesiones y las herramientas que normalmente
+terminan dispersas entre ventanas. Su núcleo está escrito en Zig; la experiencia
+de macOS está construida con Swift, AppKit y Metal. El resultado es una aplicación
+que se siente parte del sistema, sin esconder el control que importa.
 
-## Install
+| 🧭 Trabajo concentrado | ⚡ Superficie nativa | 🛡️ Seguridad visible |
+| --- | --- | --- |
+| Paneles, pestañas, tareas y comandos rápidos en un espacio de trabajo coherente. | Renderizado Metal, integración con Spaces, atajos y servicios de macOS. | Entrada segura, confirmación de portapapeles y permisos claros. |
 
-### Personal release
+## En la práctica
 
-1. Download `SpectrePro.dmg` from the
-   [latest release](https://github.com/skyones-0/spectrepro/releases/latest).
-2. Open the disk image and drag `Spectre Pro.app` to `/Applications`.
-3. Open **Spectre Pro** from Applications.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>▣ Sesiones sin fricción</h3>
+      <p>Divide el trabajo en paneles, conserva sesiones de larga duración y abre un Quick Terminal sin abandonar el contexto actual.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>⌘ Herramientas para operar</h3>
+      <p>Gestiona tareas, comandos rápidos, procesos, puertos y notificaciones desde la propia aplicación.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>◌ Hecho para macOS</h3>
+      <p>Menús, Services, AppleScript, App Intents, accesibilidad, pantalla completa y Spaces forman parte de la experiencia.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>◈ Personal sin ser frágil</h3>
+      <p>Ajusta fuentes, temas, ligaduras, keybindings, shell integration e iconos sin convertir la configuración en una caja negra.</p>
+    </td>
+  </tr>
+</table>
 
-Personal releases are signed by the self-hosted macOS runner with the Apple
-code-signing identity protected by the owner’s YubiKey, but they are not
-Developer ID notarized. macOS may ask you to approve the first launch in
-**System Settings → Privacy & Security**. Using the same signing identity in
-every release preserves permissions such as Accessibility across updates.
-**Spectre Pro → Check for Updates…** uses Sparkle metadata to verify and
-install later releases.
+## Instalación
 
-### Build from source
+1. Descarga `SpectrePro.dmg` desde la [última versión](https://github.com/skyones-0/spectrepro/releases/latest).
+2. Abre la imagen de disco y arrastra **Spectre Pro.app** a `/Applications`.
+3. Inicia Spectre Pro desde Aplicaciones.
 
-Requirements:
+Las actualizaciones posteriores se gestionan desde **Spectre Pro → Check for Updates…**.
 
-- macOS 13 or later
-- Xcode with the macOS SDK and Metal toolchain
-- Zig `0.16.0`
+> **Nota para instalaciones personales:** las versiones se firman antes de su
+> publicación, pero no están notarizadas con Developer ID. macOS puede pedir una
+> confirmación durante el primer inicio.
+
+## Configuración
+
+La configuración vive donde debe vivir en macOS:
+
+```text
+~/.config/spectrepro/config
+```
+
+Spectre Pro crea el archivo al abrirse por primera vez. Si defines
+`XDG_CONFIG_HOME`, usa esa ubicación. Los temas van en
+`~/.config/spectrepro/themes`.
+
+Después de editar la configuración, elige **Spectre Pro → Reload Configuration**.
+No guardes secretos en archivos de configuración que compartas o subas a un
+repositorio.
+
+## Rendimiento con contexto
+
+La velocidad no es una etiqueta: depende del Mac, la fuente, el tamaño de la
+ventana, la carga de salida y el modo de compilación. Spectre Pro incluye
+benchmarks para procesamiento de streams, secuencias de escape, Unicode,
+compresión, snapshots, key encoding y estructuras de datos.
+
+El panel **About Spectre Pro** muestra el uso residente de memoria y CPU del
+proceso en tiempo real. Las comparaciones entre versiones se publican únicamente
+cuando pueden reproducirse con la misma carga de trabajo y una línea base clara.
+
+## Para desarrollar
+
+Requisitos: macOS 13 o posterior, Xcode con SDK de macOS y Metal, y Zig `0.16.0`.
 
 ```bash
 git clone https://github.com/skyones-0/spectrepro.git
@@ -70,103 +121,16 @@ zig build
 open zig-out/SpectrePro.app
 ```
 
-For a local debug installation:
-
-```bash
-ditto zig-out/SpectrePro.app "/Applications/Spectre Pro.app"
-open "/Applications/Spectre Pro.app"
-```
-
-## Configuration
-
-On first launch, Spectre Pro creates its canonical configuration file at:
-
-```text
-~/.config/spectrepro/config
-```
-
-`$XDG_CONFIG_HOME` is respected when it is set. Edit this file, then select
-**Spectre Pro → Reload Configuration** to apply supported changes. Theme files
-belong in `~/.config/spectrepro/themes`.
-
-On macOS, Spectre Pro copies an existing Application Support configuration to
-the canonical XDG path on first launch and retains the original file as a
-backup. The older `~/.config/spectrepro/config.spectrepro` path remains
-readable for compatibility. Do not place secrets in any configuration file
-committed to source control.
-
-## Quality and performance
-
-Run the Zig test suite:
+Para comprobar el núcleo:
 
 ```bash
 zig build test
 ```
 
-Open `macos/SpectrePro.xcodeproj` in Xcode, or use `macos/build.nu`, to run the
-macOS unit and UI targets for the selected configuration.
+Para explorar el proyecto en Xcode, abre `macos/SpectrePro.xcodeproj`.
 
-The benchmark executable covers terminal stream processing, escape-sequence
-parsing, Unicode, compression, snapshots, key encoding, and data structures:
+## Seguridad y licencia
 
-```bash
-zig build -Demit-bench -Doptimize=ReleaseFast -Demit-macos-app=false
-./zig-out/bin/spectrepro-bench --help
-```
-
-When comparing revisions, record the Mac model, chip, RAM, macOS version,
-power mode, commit, Zig version, build options, exact command, warm-up, and
-median result. The scheduled benchmark workflow compares its median with the
-previous successful baseline and warns on a regression greater than 10%.
-
-## Delivery pipeline
-
-GitHub Actions protects the project at each stage:
-
-| Event | What runs | Outcome |
-| --- | --- | --- |
-| Pull request | macOS build and tests, CodeQL, workflow lint, dependency review | A reviewed quality gate before `main` |
-| Push to `main` | macOS CI, CodeQL, workflow lint | Continuous validation of the integration branch |
-| Signed `vX.Y.Z` tag | Release build, Sparkle appcast, checksums, SBOM, provenance attestations | A GitHub Release with update assets |
-| Weekly or manual dispatch | Benchmarks | A performance comparison against the previous run |
-
-The release workflow publishes `SpectrePro.dmg`, a ZIP archive, `appcast.xml`,
-`SHA256SUMS.txt`, and an SPDX SBOM. It downloads those published assets again
-and verifies their checksums and update metadata before completing.
-
-## Publish a release
-
-Use semantic versions with three components. For example, after updating the
-versioned project files for `1.0.3` and merging the change into `main`:
-
-```bash
-git switch main
-git pull --ff-only origin main
-git tag -s v1.0.3 -m "Spectre Pro 1.0.3"
-git push origin v1.0.3
-```
-
-The signed tag starts the release workflow. Wait for **Personal macOS Release**
-to finish successfully, then verify the published files in GitHub Releases and
-test **Check for Updates…** once on a Mac with the prior release installed.
-No new workflow is necessary for the next version—only a new signed version
-tag.
-
-For the complete, repeatable procedure—from planning an Issue through the
-Sparkle acceptance test—see [the release runbook](docs/RELEASING.md).
-
-## Project structure
-
-- `macos/Sources/Features` — product features grouped by responsibility.
-- `macos/Sources/App` — application lifecycle, menu, and window coordination.
-- `macos/Sources/SpectrePro/Surface View` — AppKit terminal surface adapters.
-- `src` — Zig terminal engine, renderer, configuration, and platform services.
-- `docs/ARCHITECTURE.md` — source boundaries and macOS-first scope policy.
-- `.github/workflows` — CI, security, benchmark, and release automation.
-
-## Security and licensing
-
-Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
-Spectre Pro is licensed under the Mozilla Public License 2.0; see
-[LICENSE](LICENSE). Upstream notices and third-party licenses remain in the
-repository where required.
+Para reportar una vulnerabilidad, consulta [SECURITY.md](SECURITY.md). Spectre
+Pro se distribuye bajo la licencia [Mozilla Public License 2.0](LICENSE). Las
+licencias y avisos de componentes de terceros se conservan en el repositorio.
