@@ -24,6 +24,10 @@ Necesitas:
 - Los secretos `SPECTREPRO_SPARKLE_PRIVATE_KEY` y
   `SPECTREPRO_SPARKLE_PUBLIC_KEY` configurados en GitHub Actions. Solo son
   necesarios para publicar; no se guardan en el repositorio.
+- Los secretos de firma Apple `SPECTREPRO_APP_SIGNING_CERTIFICATE_BASE64`,
+  `SPECTREPRO_APP_SIGNING_CERTIFICATE_PASSWORD` y
+  `SPECTREPRO_APP_SIGNING_IDENTITY`. El certificado debe ser siempre el mismo
+  para que macOS conserve permisos como Accessibility entre actualizaciones.
 
 Comprueba el estado inicial:
 
@@ -199,12 +203,15 @@ El tag `v1.0.4` inicia **Personal macOS Release**. El workflow:
 
 1. Comprueba el formato del tag y los secretos de Sparkle.
 2. Compila el core Zig en modo `ReleaseFast`.
-3. Construye `Spectre Pro.app` sin firma Apple de distribución.
-4. Crea el DMG y el ZIP.
-5. Firma el DMG para Sparkle y genera `appcast.xml`.
-6. Genera SHA-256, SBOM y attestations.
-7. Publica los assets en GitHub Releases.
-8. Descarga de nuevo los assets publicados, verifica los checksums y valida el
+3. Construye `Spectre Pro.app` y actualiza sus metadatos de release.
+4. Importa temporalmente el certificado Apple desde los secretos y firma la
+   aplicación con la identidad configurada.
+5. Verifica la firma y el identificador `co.skyones.spectrepro`.
+6. Crea el DMG y el ZIP.
+7. Firma el DMG para Sparkle y genera `appcast.xml`.
+8. Genera SHA-256, SBOM y attestations.
+9. Publica los assets en GitHub Releases.
+10. Descarga de nuevo los assets publicados, verifica los checksums y valida el
    XML y la firma del appcast.
 
 Sigue la ejecución con:
@@ -233,9 +240,9 @@ Después instala una versión anterior en una Mac de prueba y selecciona **Spect
 Pro → Check for Updates…**. Debe descubrir la versión nueva, descargarla y
 reabrir la app actualizada.
 
-La distribución actual es personal: el appcast está firmado por Sparkle, pero
-el DMG no usa Developer ID ni notarización de Apple. Es normal que la primera
-instalación manual requiera aprobación en macOS.
+La distribución actual es personal: el appcast y la aplicación usan firmas
+criptográficas, pero el DMG no usa Developer ID ni notarización de Apple. Es
+normal que la primera instalación manual requiera aprobación en macOS.
 
 ## 11. Cerrar el trabajo
 

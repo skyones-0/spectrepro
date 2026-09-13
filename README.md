@@ -47,10 +47,12 @@ Spectre Pro is designed around four practical principles:
 2. Open the disk image and drag `Spectre Pro.app` to `/Applications`.
 3. Open **Spectre Pro** from Applications.
 
-This project uses personal distribution: releases are not Developer ID signed
-or notarized. macOS may ask you to approve the first launch in **System
-Settings → Privacy & Security**. Once installed, **Spectre Pro → Check for
-Updates…** uses Sparkle metadata to verify and install later releases.
+Personal releases are signed with the configured Apple code-signing identity,
+but they are not Developer ID notarized. macOS may ask you to approve the first
+launch in **System Settings → Privacy & Security**. Using the same signing
+identity in every release preserves permissions such as Accessibility across
+updates. **Spectre Pro → Check for Updates…** uses Sparkle metadata to verify
+and install later releases.
 
 ### Build from source
 

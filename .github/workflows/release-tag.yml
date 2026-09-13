@@ -26,6 +26,9 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     env:
+      SPECTREPRO_APP_SIGNING_CERTIFICATE_BASE64: ${{ secrets.SPECTREPRO_APP_SIGNING_CERTIFICATE_BASE64 }}
+      SPECTREPRO_APP_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SPECTREPRO_APP_SIGNING_CERTIFICATE_PASSWORD }}
+      SPECTREPRO_APP_SIGNING_IDENTITY: ${{ secrets.SPECTREPRO_APP_SIGNING_IDENTITY }}
       SPARKLE_PRIVATE_KEY: ${{ secrets.SPECTREPRO_SPARKLE_PRIVATE_KEY }}
       SPARKLE_PUBLIC_KEY: ${{ secrets.SPECTREPRO_SPARKLE_PUBLIC_KEY }}
     steps:
@@ -47,6 +50,9 @@ jobs:
           git rev-parse --verify "refs/tags/${release_tag}^{commit}" >/dev/null
           [[ -n "$SPARKLE_PRIVATE_KEY" ]]
           [[ -n "$SPARKLE_PUBLIC_KEY" ]]
+          [[ -n "$SPECTREPRO_APP_SIGNING_CERTIFICATE_BASE64" ]]
+          [[ -n "$SPECTREPRO_APP_SIGNING_CERTIFICATE_PASSWORD" ]]
+          [[ -n "$SPECTREPRO_APP_SIGNING_IDENTITY" ]]
 
           {
             echo "RELEASE_TAG=${release_tag}"
@@ -68,7 +74,7 @@ jobs:
             -Demit-macos-app=false \
             -Dversion-string="$SPECTREPRO_VERSION"
 
-      - name: Build unsigned Spectre Pro.app
+      - name: Build Spectre Pro.app
         run: |
           cd macos
           xcodebuild \
@@ -89,6 +95,35 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SPECTREPRO_VERSION" "$plist_path"
           /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $SPARKLE_PUBLIC_KEY" "$plist_path"
           /usr/libexec/PlistBuddy -c "Delete :SUEnableAutomaticChecks" "$plist_path" || true
+
+      - name: Import macOS signing identity
+        run: |
+          certificate_path="$RUNNER_TEMP/spectrepro-signing-certificate.p12"
+          keychain_path="$RUNNER_TEMP/spectrepro-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+
+          printf '%s' "$SPECTREPRO_APP_SIGNING_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" \
+            -P "$SPECTREPRO_APP_SIGNING_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$keychain_password" "$keychain_path"
+          security list-keychain -d user -s "$keychain_path" login.keychain-db
+          security find-identity -v -p codesigning "$keychain_path" | \
+            grep -F "$SPECTREPRO_APP_SIGNING_IDENTITY"
+
+      - name: Sign Spectre Pro.app
+        run: |
+          app_path="macos/build/Release/SpectrePro.app"
+          codesign --force --deep \
+            --sign "$SPECTREPRO_APP_SIGNING_IDENTITY" \
+            --options runtime \
+            "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          codesign -d -r- "$app_path" 2>&1 | grep -F 'identifier "co.skyones.spectrepro"'
 
       - name: Create personal release archives
         run: |
