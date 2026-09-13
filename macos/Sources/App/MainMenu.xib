@@ -98,13 +98,7 @@
                             <menuItem isSeparatorItem="YES" id="VOq-y0-SEH"/>
                             <menuItem title="Settings…" keyEquivalent="," id="BOF-NM-1cW">
                                 <connections>
-                                    <action selector="openConfigStudio:" target="bbz-4X-AYv" id="X65-fg-iWU"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Configuration Studio…" id="CFG-STD-001">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="openConfigStudio:" target="bbz-4X-AYv" id="CFG-STD-ACT"/>
+                                    <action selector="openSettings:" target="bbz-4X-AYv" id="X65-fg-iWU"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="GOd-qX-exa"/>

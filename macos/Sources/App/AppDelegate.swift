@@ -964,8 +964,8 @@ class AppDelegate: NSObject,
         spectrepro.openConfig()
     }
 
-    @IBAction func openConfigStudio(_ sender: Any?) {
-        ConfigurationStudioController.shared.show(appDelegate: self)
+    @IBAction func openSettings(_ sender: Any?) {
+        SettingsWindowController.shared.show(appDelegate: self)
     }
 
     @IBAction func reloadConfig(_ sender: Any?) {
