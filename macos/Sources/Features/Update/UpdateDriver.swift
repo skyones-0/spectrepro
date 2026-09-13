@@ -162,22 +162,19 @@ class UpdateDriver: NSObject, SPUUserDriver {
     }
 
     func showReady(toInstallAndRelaunch reply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
-        if !hasUnobtrusiveTarget {
-            standard.showReady(toInstallAndRelaunch: reply)
-        } else {
-            let alert = NSAlert()
-            alert.alertStyle = .informational
-            alert.messageText = "Install Update and Restart?"
-            alert.informativeText = "The update has been downloaded and verified. Restart Now closes and relaunches Spectre Pro to finish installing it. Install on Quit keeps working now and applies the update when you close the app."
-            alert.addButton(withTitle: "Restart Now")
-            alert.addButton(withTitle: "Install on Quit")
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Restart Spectre Pro to Install Update?"
+        alert.informativeText = "The update has been downloaded and verified. Restart Now closes and relaunches Spectre Pro to finish installing it. Quit Later keeps your current session open and applies the update the next time you quit Spectre Pro."
+        alert.addButton(withTitle: "Restart Now")
+        alert.addButton(withTitle: "Quit Later")
 
-            switch alert.runModal() {
-            case .alertFirstButtonReturn:
-                reply(.install)
-            default:
-                reply(.dismiss)
-            }
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            reply(.install)
+        default:
+            reply(.dismiss)
         }
     }
 

@@ -382,8 +382,8 @@ const Studio = struct {
             .doc = "Thickens glyph strokes slightly for enhanced readability on high-DPI screens.",
             .category = .typography,
             .setting_type = .boolean,
-            .default_str = "false",
-            .bool_val = false,
+            .default_str = "true",
+            .bool_val = true,
         });
 
         try self.settings.append(alloc, .{
