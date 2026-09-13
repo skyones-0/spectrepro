@@ -5,8 +5,6 @@ public struct BottomTaskDrawer: View {
     @ObservedObject var taskManager = BackgroundTaskManager.shared
     var onAttachToTerminal: ((String) -> Void)? = nil
 
-    @State private var isHeaderHovered = false
-
     public init(onAttachToTerminal: ((String) -> Void)? = nil) {
         self.onAttachToTerminal = onAttachToTerminal
     }
@@ -89,26 +87,27 @@ public struct BottomTaskDrawer: View {
                                 }
                             }
 
-                            TaskOverflowMenu(
-                                task: task,
-                                onCopyOutput: {
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString(task.output, forType: .string)
-                                },
-                                onClearFinished: { taskManager.clearFinished() },
-                                onCollapse: {
-                                    withAnimation(.easeInOut(duration: 0.15)) {
-                                        taskManager.isDrawerExpanded = false
-                                    }
-                                })
-                                .opacity(isHeaderHovered ? 1 : 0)
-                                .allowsHitTesting(isHeaderHovered)
+                            TaskToolbarIconButton(
+                                symbol: "eye.slash",
+                                help: "Hide task output"
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    taskManager.isDrawerExpanded = false
+                                }
+                            }
+
+                            TaskToolbarIconButton(
+                                symbol: "trash",
+                                help: "Delete task",
+                                isDestructive: true
+                            ) {
+                                taskManager.remove(id: task.id)
+                            }
                         }
                         .padding(.horizontal, 12)
                         .frame(height: 38)
                         .background(.ultraThinMaterial)
                         .overlay(Color.black.opacity(0.12))
-                        .onHover { isHeaderHovered = $0 }
 
                         Divider()
 
@@ -242,33 +241,28 @@ private struct StopTaskButton: View {
     }
 }
 
-private struct TaskOverflowMenu: View {
-    let task: BackgroundTaskItem
-    let onCopyOutput: () -> Void
-    let onClearFinished: () -> Void
-    let onCollapse: () -> Void
+private struct TaskToolbarIconButton: View {
+    let symbol: String
+    let help: String
+    var isDestructive = false
+    let action: () -> Void
+
+    @State private var isHovered = false
 
     var body: some View {
-        Menu {
-            Button(action: onCopyOutput) {
-                Label("Copy Output", systemImage: "doc.on.doc")
-            }
-            Button(role: .destructive, action: onClearFinished) {
-                Label("Clear Finished Tasks", systemImage: "trash")
-            }
-            Divider()
-            Button(action: onCollapse) {
-                Label("Hide Task Output", systemImage: "chevron.down")
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.secondary)
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(isHovered && isDestructive ? Color.red : Color.secondary)
                 .frame(width: 24, height: 24)
+                .background(
+                    isHovered ? (isDestructive ? Color.red.opacity(0.12) : Color.primary.opacity(0.08)) : .clear,
+                    in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                 .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .help("Task actions")
+        .buttonStyle(.plain)
+        .help(help)
         .focusable(false)
+        .onHover { isHovered = $0 }
     }
 }
