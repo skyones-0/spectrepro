@@ -1,7 +1,9 @@
 import SwiftUI
+import Foundation
 
 struct AboutView: View {
     @Environment(\.openURL) var openURL
+    @EnvironmentObject private var viewModel: AboutViewModel
 
     private let githubURL = URL(string: "https://github.com/skyones-0/spectrepro")
     private let docsURL = URL(string: "https://github.com/skyones-0/spectrepro#readme")
@@ -45,6 +47,32 @@ struct AboutView: View {
 
     private var copyright: String? { Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String }
 
+    private var architecture: String {
+        #if arch(arm64)
+            "Apple Silicon"
+        #elseif arch(x86_64)
+            "Intel"
+        #else
+            "macOS"
+        #endif
+    }
+
+    private var memoryText: String {
+        ByteCountFormatter.string(fromByteCount: Int64(viewModel.residentMemoryBytes), countStyle: .memory)
+    }
+
+    private var sessionText: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.hour, .minute, .second]
+        formatter.unitsStyle = .abbreviated
+        formatter.zeroFormattingBehavior = .pad
+        return formatter.string(from: viewModel.sessionDuration) ?? "0s"
+    }
+
+    private var cpuText: String {
+        String(format: "%.1f%%", viewModel.processCPUUsage)
+    }
+
     // This creates a background style similar to the Apple "About My Mac" Window
     private struct VisualEffectBackground: NSViewRepresentable {
         let material: NSVisualEffectView.Material
@@ -73,113 +101,127 @@ struct AboutView: View {
     }
 
     var body: some View {
-        VStack(alignment: .center) {
-            CyclingIconView()
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center, spacing: 16) {
+                spectreproIconImage()
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 72, height: 72)
+                    .padding(10)
+                    .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-            VStack(alignment: .center, spacing: 32) {
-                VStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Spectre Pro")
-                        .bold()
-                        .font(.title)
-                    Text("The Enterprise Terminal Powerhouse for macOS\nGPU-accelerated, SSH Multiplexing & Systems Console")
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(.title2.weight(.semibold))
+                    Text("Terminal nativo para macOS")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Text("Estado del sistema y entrega verificable")
                         .font(.caption)
-                        .tint(.secondary)
-                        .opacity(0.8)
-                }
-                .textSelection(.enabled)
-
-                VStack(spacing: 2) {
-                    switch versionConfig {
-                    case .stable(let version):
-                        PropertyRow(label: "Version", text: version, url: versionConfig.url)
-                    case .tip:
-                        PropertyRow(label: "Version", text: "Tip Release")
-                    case .other(let v):
-                        PropertyRow(label: "Version", text: v)
-                    case .none:
-                        EmptyView()
-                    }
-                    if let build {
-                        PropertyRow(label: "Build", text: build)
-                    }
-                    if let commit, commit != "",
-                       let url = githubURL?.appendingPathComponent("/commits/\(commit)") {
-                        PropertyRow(label: "Commit", text: commit, url: url)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-
-                HStack(spacing: 8) {
-                    if let url = docsURL {
-                        Button("Docs") {
-                            openURL(url)
-                        }
-                    }
-                    if let url = githubURL {
-                        Button("GitHub") {
-                            openURL(url)
-                        }
-                    }
-                }
-
-                if let copy = self.copyright {
-                    Text(copy)
-                        .font(.caption)
-                        .textSelection(.enabled)
-                        .tint(.secondary)
-                        .opacity(0.8)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(.tertiary)
                 }
             }
-            .frame(maxWidth: .infinity)
+
+            Divider()
+
+            Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 8) {
+                GridRow {
+                    metadata("Versión", versionText)
+                    metadata("Arquitectura", architecture)
+                }
+                GridRow {
+                    metadata("Build", build ?? "—")
+                    metadata("Commit", commit ?? "—")
+                }
+            }
+
+            HStack(spacing: 12) {
+                RuntimeMetric(title: "Memoria residente", value: memoryText, detail: "Uso actual del proceso")
+                RuntimeMetric(title: "CPU del proceso", value: cpuText, detail: "Promedio del último segundo")
+            }
+
+            Text("Monitor activo: \(sessionText)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+
+            Text("Las métricas se miden localmente en este proceso. Los benchmarks comparativos se publican solo cuando están reproducidos en CI.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                if let url = docsURL {
+                    Button("Documentación") {
+                        openURL(url)
+                    }
+                }
+                if let url = githubURL {
+                    Button("Repositorio") {
+                        openURL(url)
+                    }
+                }
+                if let url = versionConfig.url {
+                    Button("Notas de versión") {
+                        openURL(url)
+                    }
+                }
+            }
+
+            if let copyright {
+                Text(copyright)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            }
         }
-        .padding(.top, 8)
-        .padding(32)
-        .frame(minWidth: 256)
+        .padding(28)
+        .frame(minWidth: 420)
         .background(VisualEffectBackground(material: .underWindowBackground).ignoresSafeArea())
     }
 
-    private struct PropertyRow: View {
-        private let label: String
-        private let text: String
-        private let url: URL?
-
-        init(label: String, text: String, url: URL? = nil) {
-            self.label = label
-            self.text = text
-            self.url = url
-        }
-
-        @ViewBuilder private var textView: some View {
-            Text(text)
-                .frame(width: 125, alignment: .leading)
-                .padding(.leading, 2)
-                .tint(.secondary)
-                .opacity(0.8)
-                .monospaced()
-        }
-
-        var body: some View {
-            HStack(spacing: 4) {
-                Text(label)
-                    .frame(width: 126, alignment: .trailing)
-                    .padding(.trailing, 2)
-                if let url {
-                    Link(destination: url) {
-                        textView
-                    }
-                } else {
-                    textView
-                }
-            }
-            .font(.callout)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity)
+    private var versionText: String {
+        switch versionConfig {
+        case .stable(let version): version
+        case .tip: "Tip Release"
+        case .other(let version): version
+        case .none: "—"
         }
     }
+
+    private func metadata(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.callout.monospaced())
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private struct RuntimeMetric: View {
+        let title: String
+        let value: String
+        let detail: String
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.title3.monospacedDigit().weight(.medium))
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
 }
 
 struct AboutView_Previews: PreviewProvider {

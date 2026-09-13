@@ -14,6 +14,8 @@ class AboutController: NSWindowController, NSWindowDelegate {
         window.isMovableByWindowBackground = true
         window.contentView = NSHostingView(rootView: AboutView().environmentObject(viewModel))
         window.titlebarAppearsTransparent = true
+        window.setContentSize(NSSize(width: 480, height: 460))
+        window.minSize = NSSize(width: 420, height: 420)
     }
 
     // MARK: - Functions
