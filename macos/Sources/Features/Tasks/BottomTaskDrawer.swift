@@ -5,7 +5,7 @@ public struct BottomTaskDrawer: View {
     @ObservedObject var taskManager = BackgroundTaskManager.shared
     var onAttachToTerminal: ((String) -> Void)? = nil
 
-    @State private var isHovered = false
+    @State private var isHeaderHovered = false
 
     public init(onAttachToTerminal: ((String) -> Void)? = nil) {
         self.onAttachToTerminal = onAttachToTerminal
@@ -29,13 +29,10 @@ public struct BottomTaskDrawer: View {
                     VStack(spacing: 0) {
                         // Header Bar
                         HStack(spacing: 8) {
-                            // Status icon
                             Group {
                                 switch task.status {
                                 case .running:
-                                    ProgressView()
-                                        .controlSize(.mini)
-                                        .frame(width: 12, height: 12)
+                                    BrailleSpinner()
                                 case .succeeded:
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.green)
@@ -47,9 +44,8 @@ public struct BottomTaskDrawer: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
-                            .font(.system(size: 11))
+                            .frame(width: 12, height: 12)
 
-                            // Task Selector Menu if multiple tasks
                             if taskManager.tasks.count > 1 {
                                 Menu {
                                     ForEach(taskManager.tasks) { t in
@@ -66,10 +62,10 @@ public struct BottomTaskDrawer: View {
                                 } label: {
                                     HStack(spacing: 4) {
                                         Text(task.title)
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .font(.system(size: 12, weight: .medium))
                                             .lineLimit(1)
                                         Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 9))
+                                            .font(.system(size: 8, weight: .medium))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -77,72 +73,42 @@ public struct BottomTaskDrawer: View {
                                 .fixedSize()
                             } else {
                                 Text(task.title)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.system(size: 12, weight: .medium))
                                     .lineLimit(1)
                             }
 
-                            // Elapsed time
                             Text(task.durationString)
-                                .font(.system(size: 10, design: .monospaced))
+                                .font(.system(size: 11, design: .monospaced).monospacedDigit())
                                 .foregroundStyle(.secondary)
 
                             Spacer()
 
-                            // Action: Stop if running
                             if !task.status.isTerminal {
-                                Button {
+                                StopTaskButton {
                                     taskManager.stop(id: task.id)
-                                } label: {
-                                    Label("Stop", systemImage: "stop.fill")
-                                        .font(.system(size: 10, weight: .medium))
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.mini)
-                                .focusable(false)
                             }
 
-                            // Action: Copy Output
-                            Button {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(task.output, forType: .string)
-                            } label: {
-                                Image(systemName: "doc.on.doc")
-                                    .font(.system(size: 10))
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
-                            .help("Copy logs to clipboard")
-                            .focusable(false)
-
-                            // Action: Clear finished
-                            Button {
-                                taskManager.clearFinished()
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 10))
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
-                            .help("Clear finished tasks")
-                            .focusable(false)
-
-                            // Minimize drawer
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    taskManager.isDrawerExpanded = false
-                                }
-                            } label: {
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 16, height: 16)
-                            }
-                            .buttonStyle(.plain)
-                            .focusable(false)
+                            TaskOverflowMenu(
+                                task: task,
+                                onCopyOutput: {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(task.output, forType: .string)
+                                },
+                                onClearFinished: { taskManager.clearFinished() },
+                                onCollapse: {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        taskManager.isDrawerExpanded = false
+                                    }
+                                })
+                                .opacity(isHeaderHovered ? 1 : 0)
+                                .allowsHitTesting(isHeaderHovered)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color(nsColor: .windowBackgroundColor))
+                        .padding(.horizontal, 12)
+                        .frame(height: 38)
+                        .background(.ultraThinMaterial)
+                        .overlay(Color.black.opacity(0.12))
+                        .onHover { isHeaderHovered = $0 }
 
                         Divider()
 
@@ -241,5 +207,68 @@ public struct BottomTaskDrawer: View {
             .frame(maxWidth: .infinity)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+}
+
+private struct BrailleSpinner: View {
+    private static let frames = Array("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏").map(String.init)
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.08)) { timeline in
+            let index = Int(timeline.date.timeIntervalSinceReferenceDate / 0.08) % Self.frames.count
+            Text(Self.frames[index])
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct StopTaskButton: View {
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Label("Stop", systemImage: "stop.fill")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(isHovered ? Color.red : Color.primary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(isHovered ? Color.red.opacity(0.12) : .clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .onHover { isHovered = $0 }
+    }
+}
+
+private struct TaskOverflowMenu: View {
+    let task: BackgroundTaskItem
+    let onCopyOutput: () -> Void
+    let onClearFinished: () -> Void
+    let onCollapse: () -> Void
+
+    var body: some View {
+        Menu {
+            Button(action: onCopyOutput) {
+                Label("Copy Output", systemImage: "doc.on.doc")
+            }
+            Button(role: .destructive, action: onClearFinished) {
+                Label("Clear Finished Tasks", systemImage: "trash")
+            }
+            Divider()
+            Button(action: onCollapse) {
+                Label("Hide Task Output", systemImage: "chevron.down")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .help("Task actions")
+        .focusable(false)
     }
 }
