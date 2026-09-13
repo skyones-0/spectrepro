@@ -965,14 +965,7 @@ class AppDelegate: NSObject,
     }
 
     @IBAction func openConfigStudio(_ sender: Any?) {
-        var config = SpectrePro.SurfaceConfiguration()
-        let binPath = Bundle.main.executablePath ?? "spectrepro"
-        config.command = "\(binPath) +config"
-        if let parent = TerminalController.preferredParent?.window {
-            _ = TerminalController.newTab(spectrepro, from: parent, withBaseConfig: config)
-        } else {
-            _ = TerminalController.newWindow(spectrepro, withBaseConfig: config)
-        }
+        ConfigurationStudioController.shared.show(appDelegate: self)
     }
 
     @IBAction func reloadConfig(_ sender: Any?) {

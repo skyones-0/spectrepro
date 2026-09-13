@@ -128,9 +128,7 @@ extension SpectrePro {
         }
 
         func openConfig() {
-            let str = configPath ?? SpectrePro.AllocatedString(spectrepro_config_open_path()).string
-            guard !str.isEmpty else { return }
-            let fileURL = URL(fileURLWithPath: str).absoluteString
+            guard let fileURL = configurationFileURL?.absoluteString else { return }
             var action = spectrepro_action_open_url_s()
             action.kind = SPECTREPRO_ACTION_OPEN_URL_KIND_TEXT
             fileURL.withCString { cStr in
@@ -138,6 +136,12 @@ extension SpectrePro {
                 action.len = UInt(fileURL.count)
                 _ = App.openURL(action)
             }
+        }
+
+        var configurationFileURL: URL? {
+            let path = configPath ?? SpectrePro.AllocatedString(spectrepro_config_open_path()).string
+            guard !path.isEmpty else { return nil }
+            return URL(fileURLWithPath: path)
         }
 
         /// Reload the configuration.
