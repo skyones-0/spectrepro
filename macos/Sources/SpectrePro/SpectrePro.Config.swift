@@ -210,6 +210,24 @@ extension SpectrePro {
             return v
         }
 
+        var fontSize: Double {
+            guard let config = self.config else { return 13 }
+            var v: Float = 13
+            let key = "font-size"
+            _ = spectrepro_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8)))
+            return Double(v)
+        }
+
+        var cursorStyle: String {
+            guard let config = self.config else { return "block" }
+            var v: UnsafePointer<Int8>?
+            let key = "cursor-style"
+            guard spectrepro_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8))), let v else {
+                return "block"
+            }
+            return String(cString: v)
+        }
+
         var shouldQuitAfterLastWindowClosed: Bool {
             guard let config = self.config else { return true }
             var v = false
@@ -345,6 +363,16 @@ extension SpectrePro {
             default:
                 defaultValue
             }
+        }
+
+        var macOSNonNativeFullscreen: String {
+            guard let config = self.config else { return "false" }
+            var v: UnsafePointer<Int8>?
+            let key = "macos-non-native-fullscreen"
+            guard spectrepro_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8))), let v else {
+                return "false"
+            }
+            return String(cString: v)
         }
 
         var windowTitleFontFamily: String? {
