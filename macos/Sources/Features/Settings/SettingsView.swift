@@ -7,146 +7,25 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            Form {
-                Section("Appearance") {
-                    TextField("Theme", text: $configuration.theme, prompt: Text("e.g. Gruvbox Dark"))
-                        .textFieldStyle(.roundedBorder)
-
-                    Text("A theme takes precedence over custom terminal colors.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-
-                    TextField("Font Family", text: $configuration.fontFamily, prompt: Text("System default"))
-                        .textFieldStyle(.roundedBorder)
-
-                    HStack {
-                        Text("Font Size")
-                        Slider(value: $configuration.fontSize, in: 8...32, step: 0.5)
-                        Text(configuration.fontSize, format: .number.precision(.fractionLength(1)))
-                            .monospacedDigit()
-                            .frame(width: 36, alignment: .trailing)
-                    }
-
-                    Picker("Cursor", selection: $configuration.cursorStyle) {
-                        Text("Block").tag("block")
-                        Text("Bar").tag("bar")
-                        Text("Underline").tag("underline")
-                        Text("Hollow Block").tag("block_hollow")
-                    }
-
-                    TextField("Background Color", text: $configuration.backgroundColor, prompt: Text("#1E1E1E"))
-                        .textFieldStyle(.roundedBorder)
-
-                    TextField("Foreground Color", text: $configuration.foregroundColor, prompt: Text("#FFFFFF"))
-                        .textFieldStyle(.roundedBorder)
-
-                    HStack {
-                        Text("Background Opacity")
-                        Slider(value: $configuration.backgroundOpacity, in: 0.15...1, step: 0.05)
-                        Text(configuration.backgroundOpacity, format: .number.precision(.fractionLength(2)))
-                            .monospacedDigit()
-                            .frame(width: 36, alignment: .trailing)
-                    }
-
-                    Picker("Background Blur", selection: $configuration.backgroundBlur) {
-                        Text("Off").tag("false")
-                        Text("Standard").tag("true")
-                        Text("Regular Glass").tag("macos-glass-regular")
-                        Text("Clear Glass").tag("macos-glass-clear")
-                    }
-                }
-
-                Section("Window Behavior") {
-                    Picker("Restore Windows", selection: $configuration.windowSaveState) {
-                        Text("System Default").tag("default")
-                        Text("Always Restore").tag("always")
-                        Text("Never Restore").tag("never")
-                    }
-
-                    Picker("New Window Fullscreen", selection: $configuration.fullscreenMode) {
-                        Text("Windowed").tag("false")
-                        Text("Native macOS").tag("true")
-                        Text("Non-Native").tag("non-native")
-                        Text("Non-Native with Menu Bar").tag("non-native-visible-menu")
-                        Text("Non-Native with Notch Padding").tag("non-native-padded-notch")
-                    }
-
-                    Picker("Title Bar", selection: $configuration.titlebarStyle) {
-                        Text("Native").tag("native")
-                        Text("Transparent").tag("transparent")
-                        Text("Tabs").tag("tabs")
-                        Text("Hidden").tag("hidden")
-                    }
-
-                    Toggle("Show top bar", isOn: $configuration.showTopbar)
-
-                    Toggle("Quit when the last window closes", isOn: $configuration.quitAfterLastWindowCloses)
-                }
-
-                Section("Terminal") {
-                    TextField("Working Directory", text: $configuration.workingDirectory, prompt: Text("Home directory"))
-                        .textFieldStyle(.roundedBorder)
-
-                    Picker("Shell Integration", selection: $configuration.shellIntegration) {
-                        Text("Automatic").tag("detect")
-                        Text("Disabled").tag("none")
-                    }
-
-                    Picker("Copy on Select", selection: $configuration.copyOnSelect) {
-                        Text("Disabled").tag("none")
-                        Text("Clipboard").tag("clipboard")
-                        Text("Primary Selection").tag("primary")
-                    }
-
-                    Toggle("Hide pointer while typing", isOn: $configuration.mouseHideWhileTyping)
-
-                    TextField("Scrollback Limit", text: $configuration.scrollbackLimit, prompt: Text("50MB"))
-                        .textFieldStyle(.roundedBorder)
-                }
-
-                Section("Privacy & Updates") {
-                    Picker("Automatic Updates", selection: $configuration.autoUpdate) {
-                        Text("Off").tag("off")
-                        Text("Check and Notify").tag("check")
-                        Text("Download and Notify").tag("download")
-                    }
-
-                    Picker("Update Channel", selection: $configuration.updateChannel) {
-                        Text("Stable").tag("stable")
-                        Text("Preview").tag("tip")
-                    }
-
-                    Picker("Option Key", selection: $configuration.optionAsAlt) {
-                        Text("Follow Keyboard Layout").tag("")
-                        Text("Use as Alt").tag("true")
-                        Text("Use for Unicode Input").tag("false")
-                        Text("Left Option as Alt").tag("left")
-                        Text("Right Option as Alt").tag("right")
-                    }
-
-                    Toggle("Automatic Secure Input", isOn: $configuration.autoSecureInput)
-                    Toggle("Show Secure Input Indicator", isOn: $configuration.secureInputIndication)
-                }
-
-                Section {
-                    HStack {
-                        Button("Apply Changes") {
-                            configuration.apply(to: appDelegate.spectrepro)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!configuration.isLoaded)
-
-                        if let status = configuration.statusMessage {
-                            Text(status)
-                                .foregroundStyle(configuration.didFail ? .red : .secondary)
-                                .font(.footnote)
-                        }
-                    }
-                }
+            AppearanceSettingsTab(configuration: configuration) {
+                configuration.apply(to: appDelegate.spectrepro)
             }
-            .formStyle(.grouped)
-            .padding()
-            .tabItem { Label("General", systemImage: "gearshape") }
+            .tabItem { Label("Appearance", systemImage: "paintpalette") }
+
+            TerminalSettingsTab(configuration: configuration) {
+                configuration.apply(to: appDelegate.spectrepro)
+            }
+            .tabItem { Label("Terminal", systemImage: "terminal") }
+
+            WindowSettingsTab(configuration: configuration) {
+                configuration.apply(to: appDelegate.spectrepro)
+            }
+            .tabItem { Label("Window", systemImage: "macwindow") }
+
+            PrivacySettingsTab(configuration: configuration) {
+                configuration.apply(to: appDelegate.spectrepro)
+            }
+            .tabItem { Label("Privacy", systemImage: "lock") }
 
             VStack(alignment: .leading, spacing: 16) {
                 Image(systemName: "slider.horizontal.3")
@@ -181,7 +60,246 @@ struct SettingsView: View {
         .task {
             configuration.load(from: appDelegate.spectrepro)
         }
-        .frame(minWidth: 580, idealWidth: 640, minHeight: 430, idealHeight: 500)
+        .frame(minWidth: 680, idealWidth: 760, minHeight: 500, idealHeight: 580)
+    }
+}
+
+private struct AppearanceSettingsTab: View {
+    @ObservedObject var configuration: ConfigurationSettingsModel
+    let apply: () -> Void
+
+    var body: some View {
+        Form {
+            Section("Theme") {
+                HStack {
+                    TextField("Theme name or path", text: $configuration.theme, prompt: Text("System default"))
+                        .textFieldStyle(.roundedBorder)
+
+                    Menu("Included Themes") {
+                        Button("System Default") { configuration.theme = "" }
+                        Divider()
+                        ForEach(Self.includedThemes, id: \.self) { theme in
+                            Button(theme) { configuration.theme = theme }
+                        }
+                    }
+                }
+
+                Text("Choose an included theme or enter a custom theme name or file path. A theme overrides custom colors.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Typography") {
+                TextField("Font Family", text: $configuration.fontFamily, prompt: Text("System default"))
+                    .textFieldStyle(.roundedBorder)
+
+                HStack {
+                    Text("Font Size")
+                    Slider(value: $configuration.fontSize, in: 8...32, step: 0.5)
+                    Text(configuration.fontSize, format: .number.precision(.fractionLength(1)))
+                        .monospacedDigit()
+                        .frame(width: 36, alignment: .trailing)
+                }
+
+                Picker("Cursor", selection: $configuration.cursorStyle) {
+                    Text("Block").tag("block")
+                    Text("Bar").tag("bar")
+                    Text("Underline").tag("underline")
+                    Text("Hollow Block").tag("block_hollow")
+                }
+            }
+
+            Section("Colors & Material") {
+                TextField("Background Color", text: $configuration.backgroundColor, prompt: Text("#1E1E1E"))
+                    .textFieldStyle(.roundedBorder)
+                TextField("Foreground Color", text: $configuration.foregroundColor, prompt: Text("#FFFFFF"))
+                    .textFieldStyle(.roundedBorder)
+
+                HStack {
+                    Text("Background Opacity")
+                    Slider(value: $configuration.backgroundOpacity, in: 0.15...1, step: 0.05)
+                    Text(configuration.backgroundOpacity, format: .number.precision(.fractionLength(2)))
+                        .monospacedDigit()
+                        .frame(width: 36, alignment: .trailing)
+                }
+
+                Picker("Background Blur", selection: $configuration.backgroundBlur) {
+                    Text("Off").tag("false")
+                    Text("Standard").tag("true")
+                    Text("Regular Glass").tag("macos-glass-regular")
+                    Text("Clear Glass").tag("macos-glass-clear")
+                }
+            }
+
+            SettingsApplyBar(configuration: configuration, apply: apply)
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private static let includedThemes = [
+        "SpectrePro Default Style Dark",
+        "Catppuccin Mocha",
+        "Dracula",
+        "Gruvbox Dark",
+        "Gruvbox Light",
+        "Nord",
+        "TokyoNight",
+    ]
+}
+
+private struct TerminalSettingsTab: View {
+    @ObservedObject var configuration: ConfigurationSettingsModel
+    let apply: () -> Void
+
+    var body: some View {
+        Form {
+            Section("Shell") {
+                TextField("Working Directory", text: $configuration.workingDirectory, prompt: Text("Home directory"))
+                    .textFieldStyle(.roundedBorder)
+
+                Picker("Shell Integration", selection: $configuration.shellIntegration) {
+                    Text("Automatic").tag("detect")
+                    Text("Disabled").tag("none")
+                }
+            }
+
+            Section("Interaction") {
+                Picker("Copy on Select", selection: $configuration.copyOnSelect) {
+                    Text("Disabled").tag("none")
+                    Text("Clipboard").tag("clipboard")
+                    Text("Primary Selection").tag("primary")
+                }
+
+                Toggle("Hide pointer while typing", isOn: $configuration.mouseHideWhileTyping)
+            }
+
+            Section("History") {
+                TextField("Scrollback Limit", text: $configuration.scrollbackLimit, prompt: Text("50MB"))
+                    .textFieldStyle(.roundedBorder)
+
+                Text("Examples: 50MB, 1GB, or a number of bytes. A larger history uses more memory.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            SettingsApplyBar(configuration: configuration, apply: apply)
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}
+
+private struct WindowSettingsTab: View {
+    @ObservedObject var configuration: ConfigurationSettingsModel
+    let apply: () -> Void
+
+    var body: some View {
+        Form {
+            Section("New Windows") {
+                Picker("Restore Windows", selection: $configuration.windowSaveState) {
+                    Text("System Default").tag("default")
+                    Text("Always Restore").tag("always")
+                    Text("Never Restore").tag("never")
+                }
+
+                Picker("New Window Fullscreen", selection: $configuration.fullscreenMode) {
+                    Text("Windowed").tag("false")
+                    Text("Native macOS").tag("true")
+                    Text("Non-Native").tag("non-native")
+                    Text("Non-Native with Menu Bar").tag("non-native-visible-menu")
+                    Text("Non-Native with Notch Padding").tag("non-native-padded-notch")
+                }
+            }
+
+            Section("Title Bar") {
+                Picker("Style", selection: $configuration.titlebarStyle) {
+                    Text("Native").tag("native")
+                    Text("Transparent").tag("transparent")
+                    Text("Tabs").tag("tabs")
+                    Text("Hidden").tag("hidden")
+                }
+
+                Toggle("Show top bar", isOn: $configuration.showTopbar)
+
+                Text("Title bar and fullscreen preferences apply to new windows.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("App Lifecycle") {
+                Toggle("Quit when the last window closes", isOn: $configuration.quitAfterLastWindowCloses)
+            }
+
+            SettingsApplyBar(configuration: configuration, apply: apply)
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}
+
+private struct PrivacySettingsTab: View {
+    @ObservedObject var configuration: ConfigurationSettingsModel
+    let apply: () -> Void
+
+    var body: some View {
+        Form {
+            Section("Updates") {
+                Picker("Automatic Updates", selection: $configuration.autoUpdate) {
+                    Text("Off").tag("off")
+                    Text("Check and Notify").tag("check")
+                    Text("Download and Notify").tag("download")
+                }
+
+                Picker("Update Channel", selection: $configuration.updateChannel) {
+                    Text("Stable").tag("stable")
+                    Text("Preview").tag("tip")
+                }
+
+                Text("Updates are never installed without confirmation.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Keyboard Privacy") {
+                Picker("Option Key", selection: $configuration.optionAsAlt) {
+                    Text("Follow Keyboard Layout").tag("")
+                    Text("Use as Alt").tag("true")
+                    Text("Use for Unicode Input").tag("false")
+                    Text("Left Option as Alt").tag("left")
+                    Text("Right Option as Alt").tag("right")
+                }
+
+                Toggle("Automatic Secure Input", isOn: $configuration.autoSecureInput)
+                Toggle("Show Secure Input Indicator", isOn: $configuration.secureInputIndication)
+            }
+
+            SettingsApplyBar(configuration: configuration, apply: apply)
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}
+
+private struct SettingsApplyBar: View {
+    @ObservedObject var configuration: ConfigurationSettingsModel
+    let apply: () -> Void
+
+    var body: some View {
+        Section {
+            HStack {
+                Button("Apply Changes", action: apply)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!configuration.isLoaded)
+
+                if let status = configuration.statusMessage {
+                    Text(status)
+                        .foregroundStyle(configuration.didFail ? .red : .secondary)
+                        .font(.footnote)
+                        .lineLimit(1)
+                }
+            }
+        }
     }
 }
 
