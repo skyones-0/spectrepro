@@ -5,19 +5,19 @@
 <h1 align="center">Spectre Pro</h1>
 
 <p align="center">
-  <strong>Un terminal nativo para macOS, diseñado para mantener el trabajo técnico en movimiento.</strong>
+  <strong>The native macOS terminal for work that does not fit in one window.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/skyones-0/spectrepro/releases/latest">Descargar</a>
+  <a href="https://github.com/skyones-0/spectrepro/releases/latest">Download</a>
   &nbsp;·&nbsp;
-  <a href="#por-qué-spectre-pro">Producto</a>
+  <a href="#what-you-can-do">Features</a>
   &nbsp;·&nbsp;
-  <a href="#configuración">Configuración</a>
+  <a href="#configuration">Configuration</a>
   &nbsp;·&nbsp;
-  <a href="docs/ARCHITECTURE.md">Arquitectura</a>
+  <a href="docs/ARCHITECTURE.md">Architecture</a>
   &nbsp;·&nbsp;
-  <a href="SECURITY.md">Seguridad</a>
+  <a href="SECURITY.md">Security</a>
 </p>
 
 <p align="center">
@@ -35,84 +35,108 @@
 
 ---
 
-## Por qué Spectre Pro
+## A terminal with a sense of place
 
-Spectre Pro reúne el terminal, las sesiones y las herramientas que normalmente
-terminan dispersas entre ventanas. Su núcleo está escrito en Zig; la experiencia
-de macOS está construida con Swift, AppKit y Metal. El resultado es una aplicación
-que se siente parte del sistema, sin esconder el control que importa.
+Spectre Pro is built for the moments when a terminal becomes the center of the
+job: tracing a production issue, keeping a deployment open, following logs,
+comparing output, or moving between several systems without losing your place.
 
-| 🧭 Trabajo concentrado | ⚡ Superficie nativa | 🛡️ Seguridad visible |
-| --- | --- | --- |
-| Paneles, pestañas, tareas y comandos rápidos en un espacio de trabajo coherente. | Renderizado Metal, integración con Spaces, atajos y servicios de macOS. | Entrada segura, confirmación de portapapeles y permisos claros. |
-
-## En la práctica
+The terminal core is written in Zig. The macOS application is built with Swift,
+AppKit, and Metal. That split keeps the rendering path fast while making windows,
+menus, keyboard shortcuts, accessibility, and system integrations feel native.
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <h3>▣ Sesiones sin fricción</h3>
-      <p>Divide el trabajo en paneles, conserva sesiones de larga duración y abre un Quick Terminal sin abandonar el contexto actual.</p>
+    <td width="33%" valign="top">
+      <h3>▣ Keep context</h3>
+      <p>Tabs, split panes, long-running sessions, and a Quick Terminal keep related work together instead of scattered across windows.</p>
     </td>
-    <td width="50%" valign="top">
-      <h3>⌘ Herramientas para operar</h3>
-      <p>Gestiona tareas, comandos rápidos, procesos, puertos y notificaciones desde la propia aplicación.</p>
+    <td width="33%" valign="top">
+      <h3>⌘ Stay in flow</h3>
+      <p>Quick commands, task views, process details, port detection, and notifications reduce the repeated work around the prompt.</p>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>◌ Hecho para macOS</h3>
-      <p>Menús, Services, AppleScript, App Intents, accesibilidad, pantalla completa y Spaces forman parte de la experiencia.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>◈ Personal sin ser frágil</h3>
-      <p>Ajusta fuentes, temas, ligaduras, keybindings, shell integration e iconos sin convertir la configuración en una caja negra.</p>
+    <td width="33%" valign="top">
+      <h3>◈ Trust the surface</h3>
+      <p>Secure input, clipboard confirmation, visible permissions, and native update checks make consequential actions easier to understand.</p>
     </td>
   </tr>
 </table>
 
-## Instalación
+## What you can do
 
-1. Descarga `SpectrePro.dmg` desde la [última versión](https://github.com/skyones-0/spectrepro/releases/latest).
-2. Abre la imagen de disco y arrastra **Spectre Pro.app** a `/Applications`.
-3. Inicia Spectre Pro desde Aplicaciones.
+| Area | Spectre Pro capabilities |
+| --- | --- |
+| **Workspaces** | Tabs, split panes, configurable window styles, fullscreen support, and a Quick Terminal that can follow you across Spaces. |
+| **Sessions** | Keep shell sessions open, monitor background work, receive command-completion notifications, and inspect active processes. |
+| **Command tools** | Build reusable quick-command libraries, manage tasks, identify local ports, and keep commonly used operations close at hand. |
+| **Appearance** | Choose fonts, themes, ligatures, cursor behavior, keybindings, shell integration, and application icons. |
+| **macOS integration** | Services, AppleScript, App Intents, accessibility, native menus, standard shortcuts, and system window behavior. |
+| **Safety controls** | Secure Keyboard Entry, clipboard confirmation, keep-awake controls, and clear system permission flows. |
 
-Las actualizaciones posteriores se gestionan desde **Spectre Pro → Check for Updates…**.
+### Made for the work between commands
 
-> **Nota para instalaciones personales:** las versiones se firman antes de su
-> publicación, pero no están notarizadas con Developer ID. macOS puede pedir una
-> confirmación durante el primer inicio.
+Spectre Pro does not treat the terminal as a blank rectangle. It keeps useful
+state around it: command history and completion signals, session management,
+background activity, searchable output, transfer activity, and configurable
+shortcuts. The goal is simple: fewer context switches while the work is still
+in progress.
 
-## Configuración
+## Native by design
 
-La configuración vive donde debe vivir en macOS:
+Spectre Pro follows macOS conventions instead of recreating them:
+
+- **Windows and Spaces** — Use the window behavior, titlebar styles, fullscreen,
+  and Quick Terminal placement that suit your desktop.
+- **Keyboard-first operation** — Standard shortcuts, configurable keybindings,
+  and a command palette keep frequent actions close.
+- **System services** — Work with macOS Services, AppleScript, App Intents, and
+  accessibility rather than routing around them.
+- **Rendering** — A Metal-backed terminal surface is paired with a Zig core for
+  terminal emulation, parsing, configuration, and platform services.
+
+## Performance without theatre
+
+Performance claims need a workload, a machine, and a baseline. Spectre Pro
+includes benchmarks for terminal stream processing, escape sequences, Unicode,
+compression, snapshots, key encoding, and data structures. Comparative results
+are useful only when those conditions are held constant.
+
+**About Spectre Pro** shows two live, local measurements for the running app:
+
+- **Resident memory** — memory currently retained by the process.
+- **Process CPU** — CPU time sampled over the most recent second.
+
+These measurements stay on your Mac. They are not usage analytics and are not
+sent to a remote service.
+
+## Install
+
+1. Download `SpectrePro.dmg` from the [latest release](https://github.com/skyones-0/spectrepro/releases/latest).
+2. Open the disk image and drag **Spectre Pro.app** to `/Applications`.
+3. Launch **Spectre Pro** from Applications.
+
+Use **Spectre Pro → Check for Updates…** to look for later releases.
+
+> **Personal releases:** release builds are signed before publication but are
+> not Developer ID notarized. macOS may ask for confirmation on first launch.
+
+## Configuration
+
+Spectre Pro creates its configuration file automatically on first launch:
 
 ```text
 ~/.config/spectrepro/config
 ```
 
-Spectre Pro crea el archivo al abrirse por primera vez. Si defines
-`XDG_CONFIG_HOME`, usa esa ubicación. Los temas van en
-`~/.config/spectrepro/themes`.
+`XDG_CONFIG_HOME` is respected when set. Put theme files in
+`~/.config/spectrepro/themes`, then choose **Spectre Pro → Reload Configuration**
+to apply supported changes. Do not place secrets in configuration files that you
+share or commit.
 
-Después de editar la configuración, elige **Spectre Pro → Reload Configuration**.
-No guardes secretos en archivos de configuración que compartas o subas a un
-repositorio.
+## Build from source
 
-## Rendimiento con contexto
-
-La velocidad no es una etiqueta: depende del Mac, la fuente, el tamaño de la
-ventana, la carga de salida y el modo de compilación. Spectre Pro incluye
-benchmarks para procesamiento de streams, secuencias de escape, Unicode,
-compresión, snapshots, key encoding y estructuras de datos.
-
-El panel **About Spectre Pro** muestra el uso residente de memoria y CPU del
-proceso en tiempo real. Las comparaciones entre versiones se publican únicamente
-cuando pueden reproducirse con la misma carga de trabajo y una línea base clara.
-
-## Para desarrollar
-
-Requisitos: macOS 13 o posterior, Xcode con SDK de macOS y Metal, y Zig `0.16.0`.
+Requirements: macOS 13 or later, Xcode with the macOS SDK and Metal toolchain,
+and Zig `0.16.0`.
 
 ```bash
 git clone https://github.com/skyones-0/spectrepro.git
@@ -121,16 +145,16 @@ zig build
 open zig-out/SpectrePro.app
 ```
 
-Para comprobar el núcleo:
+Run the core test suite with:
 
 ```bash
 zig build test
 ```
 
-Para explorar el proyecto en Xcode, abre `macos/SpectrePro.xcodeproj`.
+Open `macos/SpectrePro.xcodeproj` to work on the macOS application in Xcode.
 
-## Seguridad y licencia
+## Security and license
 
-Para reportar una vulnerabilidad, consulta [SECURITY.md](SECURITY.md). Spectre
-Pro se distribuye bajo la licencia [Mozilla Public License 2.0](LICENSE). Las
-licencias y avisos de componentes de terceros se conservan en el repositorio.
+Read [SECURITY.md](SECURITY.md) to report a vulnerability. Spectre Pro is
+licensed under the [Mozilla Public License 2.0](LICENSE). Required upstream and
+third-party notices remain in the repository.

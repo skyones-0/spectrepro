@@ -165,7 +165,7 @@ struct BackgroundProcessOverlay: View {
                                                 .cornerRadius(6)
                                             }
                                             .buttonStyle(.plain)
-                                            .help("Terminar proceso (SIGTERM/SIGKILL)")
+                                            .help("Terminate process (SIGTERM/SIGKILL)")
                                         }
                                         .padding(.vertical, 2)
                                     }

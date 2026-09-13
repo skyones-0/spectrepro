@@ -113,10 +113,10 @@ struct AboutView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Spectre Pro")
                         .font(.title2.weight(.semibold))
-                    Text("Terminal nativo para macOS")
+                    Text("A native terminal for macOS")
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                    Text("Estado del sistema y entrega verificable")
+                    Text("System status and verified delivery")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
@@ -126,7 +126,7 @@ struct AboutView: View {
 
             Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 8) {
                 GridRow {
-                    metadata("Versión", versionText)
+                    metadata("Version", versionText)
                     metadata("Arquitectura", architecture)
                 }
                 GridRow {
@@ -136,22 +136,22 @@ struct AboutView: View {
             }
 
             HStack(spacing: 12) {
-                RuntimeMetric(title: "Memoria residente", value: memoryText, detail: "Uso actual del proceso")
-                RuntimeMetric(title: "CPU del proceso", value: cpuText, detail: "Promedio del último segundo")
+                RuntimeMetric(title: "Resident memory", value: memoryText, detail: "Current process usage")
+                RuntimeMetric(title: "Process CPU", value: cpuText, detail: "Last-second average")
             }
 
-            Text("Monitor activo: \(sessionText)")
+            Text("Monitor active: \(sessionText)")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
-            Text("Las métricas se miden localmente en este proceso. Los benchmarks comparativos se publican solo cuando están reproducidos en CI.")
+            Text("Metrics are measured locally for this process. Comparative benchmarks are published only when reproduced in CI.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
                 if let url = docsURL {
-                    Button("Documentación") {
+                    Button("Documentation") {
                         openURL(url)
                     }
                 }
@@ -161,7 +161,7 @@ struct AboutView: View {
                     }
                 }
                 if let url = versionConfig.url {
-                    Button("Notas de versión") {
+                    Button("Release notes") {
                         openURL(url)
                     }
                 }
