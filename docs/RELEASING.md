@@ -24,10 +24,9 @@ Necesitas:
 - Los secretos `SPECTREPRO_SPARKLE_PRIVATE_KEY` y
   `SPECTREPRO_SPARKLE_PUBLIC_KEY` configurados en GitHub Actions. Solo son
   necesarios para publicar; no se guardan en el repositorio.
-- Los secretos de firma Apple `SPECTREPRO_APP_SIGNING_CERTIFICATE_BASE64`,
-  `SPECTREPRO_APP_SIGNING_CERTIFICATE_PASSWORD` y
-  `SPECTREPRO_APP_SIGNING_IDENTITY`. El certificado debe ser siempre el mismo
-  para que macOS conserve permisos como Accessibility entre actualizaciones.
+- El runner autoalojado `spectrepro-release` conectado a tu Mac, con la
+  YubiKey conectada y la identidad Apple Development disponible. La clave no
+  se exporta a GitHub; la firma se realiza localmente durante el workflow.
 
 Comprueba el estado inicial:
 
@@ -204,8 +203,8 @@ El tag `v1.0.4` inicia **Personal macOS Release**. El workflow:
 1. Comprueba el formato del tag y los secretos de Sparkle.
 2. Compila el core Zig en modo `ReleaseFast`.
 3. Construye `Spectre Pro.app` y actualiza sus metadatos de release.
-4. Importa temporalmente el certificado Apple desde los secretos y firma la
-   aplicación con la identidad configurada.
+4. Comprueba que el runner tiene la identidad Apple protegida por la YubiKey y
+   firma la aplicación localmente.
 5. Verifica la firma y el identificador `co.skyones.spectrepro`.
 6. Crea el DMG y el ZIP.
 7. Firma el DMG para Sparkle y genera `appcast.xml`.
