@@ -58,6 +58,12 @@ extension SpectrePro {
             }
         }
 
+        /// Sends a hardware BREAK through the active native serial backend.
+        @MainActor
+        func sendSerialBreak(durationMilliseconds: UInt32 = 250) {
+            spectrepro_surface_serial_break(surface, durationMilliseconds)
+        }
+
         /// Returns the modifiers that participate in text translation for key
         /// events on this surface. This honors configuration such as
         /// `macos-option-as-alt`, which may exclude option from translation.
