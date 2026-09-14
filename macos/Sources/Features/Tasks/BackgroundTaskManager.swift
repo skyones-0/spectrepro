@@ -88,6 +88,7 @@ public final class BackgroundTaskManager: ObservableObject {
         tasks.insert(taskItem, at: 0)
         activeDrawerTaskId = taskId
         isDrawerExpanded = true
+        AppDiagnostics.event("Started background task.", category: "Tasks")
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -125,6 +126,7 @@ public final class BackgroundTaskManager: ObservableObject {
                 tasks[idx].pid = process.processIdentifier
             }
         } catch {
+            AppDiagnostics.error("Failed to launch background task: \(error.localizedDescription)", category: "Tasks")
             appendOutput(to: taskId, text: "\n[Error launching task: \(error.localizedDescription)]\n")
             handleTermination(for: taskId, exitCode: -1)
         }
@@ -140,6 +142,7 @@ public final class BackgroundTaskManager: ObservableObject {
             tasks[idx].finishedAt = Date()
         }
         cleanup(id: id)
+        AppDiagnostics.event("Stopped background task.", category: "Tasks")
     }
 
     public func clearFinished() {
@@ -183,6 +186,7 @@ public final class BackgroundTaskManager: ObservableObject {
                 tasks[idx].finishedAt = Date()
             }
         }
+        AppDiagnostics.event("Background task finished with exit code \(exitCode).", category: "Tasks")
         cleanup(id: taskId)
     }
 

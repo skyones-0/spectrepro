@@ -193,6 +193,7 @@ class AppDelegate: NSObject,
     // MARK: - NSApplicationDelegate
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        AppDiagnostics.event("Application will finish launching.")
         #if DEBUG
         if
             let suite = UserDefaults.spectreproSuite,
@@ -219,6 +220,7 @@ class AppDelegate: NSObject,
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDiagnostics.event("Application finished launching.")
         // System settings overrides
         UserDefaults.spectrepro.register(defaults: [
             // Disable this so that repeated key events make it through to our terminal views.
@@ -365,11 +367,13 @@ class AppDelegate: NSObject,
     }
 
     func applicationDidHide(_ notification: Notification) {
+        AppDiagnostics.event("Application was hidden.")
         // Keep track of our hidden state to restore properly
         self.hiddenState = .init()
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        AppDiagnostics.event("Application became active.")
         // If we're back manually then clear the hidden state because macOS handles it.
         self.hiddenState = nil
 
@@ -396,6 +400,7 @@ class AppDelegate: NSObject,
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        AppDiagnostics.event("Termination was requested.")
         let windows = NSApplication.shared.windows
         if windows.isEmpty { return .terminateNow }
 
@@ -430,6 +435,7 @@ class AppDelegate: NSObject,
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        AppDiagnostics.event("Application will terminate.")
         KeepAwakeManager.shared.deactivate()
 
         // We have no notifications we want to persist after death,
@@ -457,11 +463,13 @@ class AppDelegate: NSObject,
         guard applicationHasBecomeActive else { return true }
 
         // No visible windows, open a new one.
+        AppDiagnostics.event("Reopened application without visible windows.")
         _ = TerminalController.newWindow(spectrepro)
         return false
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        AppDiagnostics.event("Received open-file request.")
         // `-e` makes existing path arguments part of the child command, but
         // AppKit also reports those paths as documents to open. Only consume
         // matching command arguments so unrelated Finder or Dock requests work.

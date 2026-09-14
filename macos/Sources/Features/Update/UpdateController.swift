@@ -43,7 +43,9 @@ class UpdateController {
     func startUpdater() {
         do {
             try updater.start()
+            AppDiagnostics.event("Update service started.", category: "Updates")
         } catch {
+            AppDiagnostics.error("Update service failed to start: \(error.localizedDescription)", category: "Updates")
             userDriver.viewModel.state = .error(.init(
                 error: error,
                 retry: { [weak self] in
@@ -62,11 +64,13 @@ class UpdateController {
               updater.automaticallyChecksForUpdates else { return }
 
         didScheduleStartupCheck = true
+        AppDiagnostics.event("Scheduled background update check.", category: "Updates")
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5)) { [weak self] in
             guard let self,
                   self.viewModel.state == .idle,
                   NSApp.isActive else { return }
             self.updater.checkForUpdatesInBackground()
+            AppDiagnostics.event("Started background update check.", category: "Updates")
         }
     }
 
@@ -76,6 +80,7 @@ class UpdateController {
     func checkForUpdates() {
         // If we're already idle, then just check for updates immediately.
         if viewModel.state == .idle {
+            AppDiagnostics.event("Started manual update check.", category: "Updates")
             updater.checkForUpdates()
             return
         }
@@ -97,6 +102,7 @@ class UpdateController {
                 .keyEquivalent = .init([KeyboardShortcut(.escape).key.character])
             switch alert.runModal() {
             case .alertFirstButtonReturn:
+                AppDiagnostics.event("User confirmed update restart.", category: "Updates")
                 viewModel.state.confirm()
             default:
                 break
@@ -106,6 +112,7 @@ class UpdateController {
 
         // If we're not idle then we need to cancel any prior state.
         viewModel.state.cancel()
+        AppDiagnostics.event("Cancelled in-progress update operation.", category: "Updates")
 
         // The above will take time to settle, so we delay the check for some time.
         // The 100ms is arbitrary and I'd rather not, but we have to wait more than
