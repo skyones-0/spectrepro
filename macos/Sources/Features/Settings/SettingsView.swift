@@ -289,6 +289,17 @@ private struct PrivacySettingsTab: View {
                 Toggle("Show Secure Input Indicator", isOn: $configuration.secureInputIndication)
             }
 
+            Section("Diagnostics") {
+                Picker("Log detail", selection: $configuration.verbosityLevel) {
+                    Text("Errors only").tag(AppDiagnostics.Verbosity.errorsOnly)
+                    Text("Normal").tag(AppDiagnostics.Verbosity.normal)
+                    Text("Verbose").tag(AppDiagnostics.Verbosity.verbose)
+                }
+                Text("Changes take effect immediately and do not require a restart.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             SettingsApplyBar(configuration: configuration, apply: apply)
         }
         .formStyle(.grouped)
@@ -343,6 +354,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
     @Published var optionAsAlt = ""
     @Published var autoSecureInput = true
     @Published var secureInputIndication = true
+    @Published var verbosityLevel = AppDiagnostics.verbosity
     @Published private(set) var isLoaded = false
     @Published private(set) var statusMessage: String?
     @Published private(set) var didFail = false
@@ -382,6 +394,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
         optionAsAlt = readValue(for: "macos-option-as-alt", at: app.configurationFileURL) ?? ""
         autoSecureInput = boolValue(for: "macos-auto-secure-input", at: app.configurationFileURL, default: true)
         secureInputIndication = boolValue(for: "macos-secure-input-indication", at: app.configurationFileURL, default: true)
+        verbosityLevel = AppDiagnostics.verbosity
         hasThemeColorOverrides = Self.hasThemeColorOverrides(at: app.configurationFileURL)
         clearsThemePalette = false
         loadedValues = currentValues
@@ -449,6 +462,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
             }
             try contents.write(to: url, atomically: true, encoding: .utf8)
             app.reloadConfig()
+            AppDiagnostics.verbosity = verbosityLevel
             didFail = false
             statusMessage = "Applied to \(url.path)."
             loadedValues = values
