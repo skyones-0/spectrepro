@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Darwin
 
 public enum BackgroundTaskStatus: Equatable {
     case running
@@ -124,6 +125,7 @@ public final class BackgroundTaskManager: ObservableObject {
 
         do {
             try process.run()
+            _ = setpgid(process.processIdentifier, process.processIdentifier)
             if let idx = tasks.firstIndex(where: { $0.id == taskId }) {
                 tasks[idx].pid = process.processIdentifier
             }
@@ -138,6 +140,10 @@ public final class BackgroundTaskManager: ObservableObject {
 
     public func stop(id: UUID) {
         guard let process = runningProcesses[id], process.isRunning else { return }
+        let processGroupID = process.processIdentifier
+        if processGroupID > 0 {
+            _ = kill(-processGroupID, SIGTERM)
+        }
         process.terminate()
         if let idx = tasks.firstIndex(where: { $0.id == id }) {
             tasks[idx].status = .cancelled
