@@ -264,6 +264,21 @@ struct EnterpriseSessionsTests {
         #expect(ciscoConfig.charDelayMs == 2)
     }
 
+    @Test func testSerialRescanPreservesConfigurationForSameDevice() {
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: "/dev/cu.usbserial-A101",
+            newPath: "/dev/cu.usbserial-A101"
+        ) == false)
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: "/dev/cu.usbserial-A101",
+            newPath: "/dev/cu.usbserial-B202"
+        ) == true)
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: nil,
+            newPath: "/dev/cu.usbserial-A101"
+        ) == true)
+    }
+
     // MARK: - 7. High-Throughput, Concurrency & Stress Benchmark Tests
 
     @Test func testKeywordHighlighterStressThroughput() {

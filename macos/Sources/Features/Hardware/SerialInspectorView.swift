@@ -42,6 +42,12 @@ public struct SerialConnectionConfig: Equatable {
 
 }
 
+enum SerialInspectorSelection {
+    static func requiresConfigurationReset(previousPath: String?, newPath: String) -> Bool {
+        previousPath != newPath
+    }
+}
+
 public struct SerialInspectorView: View {
     @ObservedObject var serialWatcher = SerialDeviceWatcher.shared
     @ObservedObject var state = QuickCommandsState.shared
@@ -83,15 +89,29 @@ public struct SerialInspectorView: View {
         if let targetPath = state.selectedSerialDevicePath,
            let match = availablePorts.first(where: { $0.bsdPath == targetPath }) {
             selectDevice(match)
+        } else if let selectedDevice,
+                  !availablePorts.contains(where: { $0.bsdPath == selectedDevice.bsdPath }) {
+            if let first = availablePorts.first {
+                selectDevice(first)
+            } else {
+                self.selectedDevice = nil
+                state.selectedSerialDevicePath = nil
+            }
         } else if selectedDevice == nil, let first = availablePorts.first {
             selectDevice(first)
         }
     }
 
     private func selectDevice(_ dev: SerialDevice) {
+        let shouldResetConfiguration = SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: selectedDevice?.bsdPath,
+            newPath: dev.bsdPath
+        )
         selectedDevice = dev
         state.selectedSerialDevicePath = dev.bsdPath
-        config = .default(for: dev.bsdPath, name: dev.name)
+        if shouldResetConfiguration {
+            config = .default(for: dev.bsdPath, name: dev.name)
+        }
     }
 
     // MARK: - Hardware Break Signal
