@@ -264,6 +264,19 @@ struct EnterpriseSessionsTests {
         #expect(ciscoConfig.charDelayMs == 2)
     }
 
+    @Test func testSerialRescanPreservesConfigurationForSameDevice() {
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: "/dev/cu.usbserial-A101",
+            newPath: "/dev/cu.usbserial-A101"
+        ) == false)
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: "/dev/cu.usbserial-A101",
+            newPath: "/dev/cu.usbserial-B202"
+        ) == true)
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: nil,
+            newPath: "/dev/cu.usbserial-A101"
+        ) == true)
     @Test func testSerialPasteEngineUsesConfiguredDelays() async throws {
         actor Recorder {
             var sent: [String] = []
