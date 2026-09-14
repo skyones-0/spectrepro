@@ -17,8 +17,11 @@ final class SettingsWindowController: NSWindowController {
             )
             settingsWindow.title = "Spectre Pro Settings"
             settingsWindow.contentView = contentView
-            settingsWindow.minSize = NSSize(width: 680, height: 500)
-            settingsWindow.center()
+            settingsWindow.minSize = NSSize(width: 620, height: 460)
+            if !settingsWindow.setFrameUsingName("SpectreProSettings") {
+                settingsWindow.center()
+            }
+            settingsWindow.setFrameAutosaveName("SpectreProSettings")
             window = settingsWindow
         }
 
