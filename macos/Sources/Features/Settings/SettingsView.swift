@@ -311,7 +311,7 @@ private struct SettingsApplyBar: View {
                     Text(status)
                         .foregroundStyle(configuration.didFail ? .red : .secondary)
                         .font(.footnote)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
