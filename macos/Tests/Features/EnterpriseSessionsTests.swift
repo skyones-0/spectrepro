@@ -264,6 +264,13 @@ struct EnterpriseSessionsTests {
         #expect(ciscoConfig.charDelayMs == 2)
     }
 
+    @Test func testSerialSettingsReachNativeSurfaceConfiguration() {
+        var config = SerialConnectionConfig.default(for: "/dev/cu.usbserial-A101")
+        config.baudRate = 9600
+        config.dataBits = 7
+        config.parity = "Even"
+        config.stopBits = 2
+        config.flowControl = "Software"
     @Test func testSerialConfigurationMapsToNativeBackend() {
         var config = SerialConnectionConfig.default(for: "/dev/cu.usbserial-A101")
         config.baudRate = 9600
@@ -276,6 +283,20 @@ struct EnterpriseSessionsTests {
         #expect(surfaceConfiguration.serialDevice == "/dev/cu.usbserial-A101")
         #expect(surfaceConfiguration.serialBaudRate == 9600)
         #expect(surfaceConfiguration.serialDataBits == 7)
+        #expect(surfaceConfiguration.serialParity == 2)
+        #expect(surfaceConfiguration.serialStopBits == 2)
+        #expect(surfaceConfiguration.serialFlowControl == 2)
+    }
+
+    @Test func testSerialDisconnectUsesNormalTerminalConfiguration() {
+        var serialConfig = SerialConnectionConfig.default(for: "/dev/cu.usbserial-A101")
+        serialConfig.baudRate = 230400
+        let serialSurface = SpectrePro.SurfaceConfiguration(serial: serialConfig)
+        let disconnectedSurface = SpectrePro.SurfaceConfiguration()
+
+        #expect(serialSurface.serialDevice != nil)
+        #expect(disconnectedSurface.serialDevice == nil)
+        #expect(disconnectedSurface.serialBaudRate == 115200)
         #expect(surfaceConfiguration.serialParity == 1)
         #expect(surfaceConfiguration.serialStopBits == 2)
         #expect(surfaceConfiguration.serialFlowControl == 1)
