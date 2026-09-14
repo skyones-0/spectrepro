@@ -61,11 +61,31 @@ private struct AppearanceSettingsTab: View {
                 .pickerStyle(.menu)
                 .disabled(configuration.availableThemes.isEmpty)
 
-                Text(configuration.availableThemes.isEmpty
-                    ? "Loading bundled themes…"
-                    : "Choose one of the bundled themes. Custom colors override a theme.")
+                switch configuration.themeStatus {
+                case .loading:
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Loading bundled themes…")
+                    }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                case .failed(let message):
+                    HStack {
+                        Label(message, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                        Spacer()
+                        Button("Retry") { configuration.loadThemes(force: true) }
+                            .controlSize(.small)
+                    }
+                case .ready:
+                    Text("Choose one of the bundled themes. Custom colors override a theme.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                case .idle:
+                    EmptyView()
+                }
 
                 DisclosureGroup("Use a custom theme file", isExpanded: $showsCustomThemeInput) {
                     TextField("Theme file path or custom theme name", text: $configuration.theme)
@@ -329,9 +349,11 @@ private final class ConfigurationSettingsModel: ObservableObject {
     @Published private(set) var reference = [ConfigurationOption]()
     @Published private(set) var referenceStatus: ReferenceStatus = .idle
     @Published private(set) var availableThemes = [String]()
+    @Published private(set) var themeStatus: ThemeStatus = .idle
     @Published private var optionValues = [String: String]()
     @Published private(set) var hasThemeColorOverrides = false
     private var loadedValues = [String: String]()
+    private var loadedOptionValues = [String: String]()
     private var clearsThemePalette = false
 
     func load(from app: SpectrePro.App) {
@@ -369,15 +391,21 @@ private final class ConfigurationSettingsModel: ObservableObject {
         AppDiagnostics.event("Loaded settings from \(source).", category: "Settings")
     }
 
-    func loadThemes() {
-        guard availableThemes.isEmpty, let executableURL = Bundle.main.executableURL else { return }
+    func loadThemes(force: Bool = false) {
+        guard (force || availableThemes.isEmpty), let executableURL = Bundle.main.executableURL else { return }
+        themeStatus = .loading
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let themes = Self.loadThemes(executableURL: executableURL)
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.availableThemes = themes
-                AppDiagnostics.event("Loaded \(themes.count) bundled themes.", category: "Settings")
+                if themes.isEmpty {
+                    self.themeStatus = .failed("Bundled themes could not be loaded.")
+                } else {
+                    self.availableThemes = themes
+                    self.themeStatus = .ready
+                    AppDiagnostics.event("Loaded \(themes.count) bundled themes.", category: "Settings")
+                }
             }
         }
     }
@@ -523,6 +551,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
                 DispatchQueue.main.async {
                     self?.reference = options
                     self?.optionValues = values
+                    self?.loadedOptionValues = values
                     self?.referenceStatus = .ready
                 }
             } catch {
@@ -549,6 +578,11 @@ private final class ConfigurationSettingsModel: ObservableObject {
 
     func refreshReferenceValues(from app: SpectrePro.App) {
         optionValues = Self.readValues(at: app.configurationFileURL)
+        loadedOptionValues = optionValues
+    }
+
+    var hasUnsavedReferenceChanges: Bool {
+        optionValues != loadedOptionValues
     }
 
     func apply(option: ConfigurationOption, to app: SpectrePro.App) {
@@ -776,6 +810,13 @@ private enum ReferenceStatus: Equatable {
     case failed(String)
 }
 
+private enum ThemeStatus: Equatable {
+    case idle
+    case loading
+    case ready
+    case failed(String)
+}
+
 private enum ConfigurationReferenceError: LocalizedError {
     case unavailable
 
@@ -834,6 +875,7 @@ private struct ConfigurationReferenceView: View {
     let reloadConfiguration: () -> Void
     @State private var category: ConfigurationCategory?
     @State private var search = ""
+    @State private var showsRefreshConfirmation = false
 
     var body: some View {
         Group {
@@ -929,7 +971,11 @@ private struct ConfigurationReferenceView: View {
                             }
 
                             Button("Refresh Values", systemImage: "arrow.clockwise") {
-                                configuration.refreshReferenceValues(from: app)
+                                if configuration.hasUnsavedReferenceChanges {
+                                    showsRefreshConfirmation = true
+                                } else {
+                                    configuration.refreshReferenceValues(from: app)
+                                }
                             }
                         }
                     }
@@ -939,6 +985,14 @@ private struct ConfigurationReferenceView: View {
         .onAppear {
             configuration.loadReference(from: app)
             configuration.refreshReferenceValues(from: app)
+        }
+        .alert("Discard unsaved settings edits?", isPresented: $showsRefreshConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Refresh", role: .destructive) {
+                configuration.refreshReferenceValues(from: app)
+            }
+        } message: {
+            Text("Refreshing values will replace the changes currently entered in All Settings.")
         }
     }
 
