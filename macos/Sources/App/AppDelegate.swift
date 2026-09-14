@@ -386,6 +386,8 @@ class AppDelegate: NSObject,
                 _ = TerminalController.newWindow(spectrepro)
                 undoManager.enableUndoRegistration()
             }
+
+            updateController.scheduleStartupCheck()
         }
     }
 

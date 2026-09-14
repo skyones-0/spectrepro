@@ -11,6 +11,7 @@ import SwiftUI
 class UpdateController {
     private(set) var updater: SPUUpdater
     private let userDriver: UpdateDriver
+    private var didScheduleStartupCheck = false
 
     var viewModel: UpdateViewModel {
         userDriver.viewModel
@@ -53,6 +54,19 @@ class UpdateController {
                     self?.userDriver.viewModel.state = .idle
                 }
             ))
+        }
+    }
+
+    func scheduleStartupCheck() {
+        guard !didScheduleStartupCheck,
+              updater.automaticallyChecksForUpdates else { return }
+
+        didScheduleStartupCheck = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5)) { [weak self] in
+            guard let self,
+                  self.viewModel.state == .idle,
+                  NSApp.isActive else { return }
+            self.updater.checkForUpdatesInBackground()
         }
     }
 
