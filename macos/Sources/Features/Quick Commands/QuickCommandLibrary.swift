@@ -4,14 +4,18 @@ import Foundation
 /// One library per application, independent of config reloads and window state.
 @MainActor
 final class QuickCommandLibrary: ObservableObject {
-    static var defaultURL: URL {
-        let fileManager = FileManager.default
-        let home = fileManager.homeDirectoryForCurrentUser
-        let dotConfigDir = home.appendingPathComponent(".config", isDirectory: true).appendingPathComponent("spectrepro", isDirectory: true)
-        let dotConfigFile = dotConfigDir.appendingPathComponent("quick-commands.json")
+    static func defaultURL(
+        fileManager: FileManager = .default,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        let configHome = environment["XDG_CONFIG_HOME"].flatMap { path in
+            path.isEmpty ? nil : URL(fileURLWithPath: path, isDirectory: true)
+        } ?? fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".config", isDirectory: true)
+        let configDirectory = configHome.appendingPathComponent("spectrepro", isDirectory: true)
+        let configFile = configDirectory.appendingPathComponent("quick-commands.json")
 
-        // Auto-migrate from legacy Application Support if ~/.config file does not exist yet
-        if !fileManager.fileExists(atPath: dotConfigFile.path) {
+        // Auto-migrate from legacy Application Support if the XDG file does not exist yet.
+        if !fileManager.fileExists(atPath: configFile.path) {
             let legacyCandidates = [
                 fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent(Bundle.main.bundleIdentifier ?? "co.skyones.spectrepro")
@@ -22,16 +26,16 @@ final class QuickCommandLibrary: ObservableObject {
             ]
             for candidate in legacyCandidates {
                 if fileManager.fileExists(atPath: candidate.path) {
-                    try? fileManager.createDirectory(at: dotConfigDir, withIntermediateDirectories: true)
-                    try? fileManager.copyItem(at: candidate, to: dotConfigFile)
+                    try? fileManager.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+                    try? fileManager.copyItem(at: candidate, to: configFile)
                     break
                 }
             }
         }
-        return dotConfigFile
+        return configFile
     }
 
-    static let shared = QuickCommandLibrary(url: defaultURL)
+    static let shared = QuickCommandLibrary(url: defaultURL())
 
     struct Document: Codable {
         var version = 1

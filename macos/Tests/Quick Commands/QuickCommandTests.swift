@@ -3,6 +3,17 @@ import Testing
 @testable import SpectrePro
 
 struct QuickCommandTests {
+    @MainActor @Test func defaultURLRespectsXDGConfigHome() {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let url = QuickCommandLibrary.defaultURL(
+            fileManager: fileManager,
+            environment: ["XDG_CONFIG_HOME": root.path]
+        )
+
+        #expect(url.path == root.appendingPathComponent("spectrepro/quick-commands.json").path)
+    }
+
     @Test func literalBytesAndExecution() throws {
         let command = QuickCommand(title: "Unicode", command: "é \\\"", action: .execute)
         #expect(command.bindingAction(execute: false) == "text:\\xc3\\xa9\\x20\\x5c\\x22")
