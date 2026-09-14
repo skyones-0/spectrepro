@@ -390,6 +390,14 @@ private final class ConfigurationSettingsModel: ObservableObject {
 
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let invalidColors = ["background", "foreground"].filter {
+                let value = currentValues[$0] ?? ""
+                return !value.isEmpty && !ConfigurationColor.isValidHex(value)
+            }
+            guard invalidColors.isEmpty else {
+                fail("Invalid color value for \(invalidColors.joined(separator: ", ")). Use #RRGGBB.")
+                return
+            }
             let restartNeeded = requiresRestart(at: url)
             var contents = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
             let values = currentValues
@@ -557,10 +565,15 @@ private final class ConfigurationSettingsModel: ObservableObject {
             return
         }
 
+        let value = optionValues[option.key] ?? ""
+        if ConfigurationColor.supports(option.key), !value.isEmpty, !ConfigurationColor.isValidHex(value) {
+            fail("Invalid color value for \(option.key). Use #RRGGBB.")
+            return
+        }
+
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let contents = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            let value = optionValues[option.key] ?? ""
             try replacingAll(option.key, with: value, in: contents).write(to: url, atomically: true, encoding: .utf8)
             app.reloadConfig()
             didFail = false
