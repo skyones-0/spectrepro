@@ -96,6 +96,7 @@ struct SerialExitOverlay: View {
         }
         .buttonStyle(.plain)
         .contentShape(RoundedRectangle(cornerRadius: 12))
+        .backport.pointerStyle(.link)
         .help("Disconnect serial session")
         .accessibilityLabel("Disconnect serial session")
         .accessibilityHint("Closes the current serial terminal and releases the device")
