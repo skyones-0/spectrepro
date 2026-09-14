@@ -142,7 +142,7 @@ public struct SidebarHubView: View {
     }
 
     private func handleConnectCommand(_ commandText: String, inNewTab: Bool) {
-        guard let surface = surface else { return }
+        guard surface != nil else { return }
         if inNewTab {
             onPerformAction?("new_tab")
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(180)) {
@@ -156,7 +156,7 @@ public struct SidebarHubView: View {
     }
 
     private func handleSplitCommand(_ commandText: String) {
-        guard let surface = surface else { return }
+        guard surface != nil else { return }
         onPerformAction?("new_split:right")
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(180)) {
             let qc = QuickCommand(title: "Connect", command: commandText)
@@ -165,25 +165,32 @@ public struct SidebarHubView: View {
     }
 
     private func handleSerialConnect(_ config: SerialConnectionConfig, inNewTab: Bool) {
-        _ = inNewTab
         guard let surface else { return }
         let serial = SpectrePro.SurfaceConfiguration(serial: config)
-        NotificationCenter.default.post(
-            name: Notification.spectreproNewTab,
-            object: surface,
-            userInfo: [Notification.NewSurfaceConfigKey: serial]
-        )
+        if inNewTab {
+            NotificationCenter.default.post(
+                name: SpectrePro.Notification.spectreproNewTab,
+                object: surface,
+                userInfo: [SpectrePro.Notification.NewSurfaceConfigKey: serial]
+            )
+        } else {
+            NotificationCenter.default.post(
+                name: SpectrePro.Notification.spectreproReplaceSurface,
+                object: surface,
+                userInfo: [SpectrePro.Notification.NewSurfaceConfigKey: serial]
+            )
+        }
     }
 
     private func handleSerialSplit(_ config: SerialConnectionConfig) {
         guard let surface else { return }
         let serial = SpectrePro.SurfaceConfiguration(serial: config)
         NotificationCenter.default.post(
-            name: Notification.spectreproNewSplit,
+            name: SpectrePro.Notification.spectreproNewSplit,
             object: surface,
             userInfo: [
                 "direction": SPECTREPRO_SPLIT_DIRECTION_RIGHT,
-                Notification.NewSurfaceConfigKey: serial,
+                SpectrePro.Notification.NewSurfaceConfigKey: serial,
             ]
         )
     }

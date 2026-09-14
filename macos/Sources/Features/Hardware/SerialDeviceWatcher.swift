@@ -29,7 +29,7 @@ public final class SerialDeviceWatcher: ObservableObject {
     @Published public var activeAlert: SerialDevice?
     @Published public var selectedBaudRate: Int = 115200
 
-    public static let standardBaudRates = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
+    public static let standardBaudRates = [9600, 19200, 38400, 57600, 115200, 230400]
 
     public static func allAvailablePorts() -> [SerialDevice] {
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: "/dev") else { return [] }
@@ -144,7 +144,9 @@ public final class SerialDeviceWatcher: ObservableObject {
                 isUSB: true,
                 connectedAt: Date()
             )
-            self?.triggerAlert(for: testDev)
+            Task { @MainActor [weak self] in
+                self?.triggerAlert(for: testDev)
+            }
         }
     }
 

@@ -36,10 +36,6 @@ public struct SerialConnectionConfig: Equatable {
         )
     }
 
-    public func buildLaunchCommand() -> String {
-        // macOS native standard command to connect to serial port
-        return "screen \(devicePath) \(baudRate)"
-    }
 }
 
 public struct SerialInspectorView: View {
@@ -57,6 +53,7 @@ public struct SerialInspectorView: View {
     @State private var breakFeedbackMessage: String? = nil
     @State private var isThrottledPasting = false
     @State private var pasteProgressMessage: String? = nil
+    @State private var pasteTask: Task<Void, Never>?
 
     init(
         surface: SpectrePro.SurfaceView?,
@@ -96,8 +93,6 @@ public struct SerialInspectorView: View {
     // MARK: - Hardware Break Signal
 
     private func triggerBreakSignal() {
-        let devPath = config.devicePath
-
         // The active surface owns the descriptor. Do not open a second fd:
         // that could assert BREAK on a different session than the one shown.
         surface?.surfaceModel?.sendSerialBreak(durationMilliseconds: 250)
@@ -132,20 +127,30 @@ public struct SerialInspectorView: View {
         isThrottledPasting = true
         pasteProgressMessage = "Pasting 0/\(totalLines)..."
 
-        Task {
+        pasteTask?.cancel()
+        pasteTask = Task { @MainActor in
             for (idx, line) in lines.enumerated() {
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     pasteProgressMessage = "Pasting \(idx + 1)/\(totalLines)..."
                     surface.surfaceModel?.sendText(line + "\n")
                 }
-                try? await Task.sleep(nanoseconds: UInt64(lineDelay) * 1_000_000)
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(lineDelay) * 1_000_000)
+                } catch {
+                    return
+                }
             }
 
             await MainActor.run {
                 isThrottledPasting = false
                 pasteProgressMessage = "✓ \(totalLines) lines pasted"
             }
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            do {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+            } catch {
+                return
+            }
             await MainActor.run {
                 pasteProgressMessage = nil
             }
@@ -305,8 +310,6 @@ public struct SerialInspectorView: View {
                                     Text("None").tag("None")
                                     Text("Even").tag("Even")
                                     Text("Odd").tag("Odd")
-                                    Text("Mark").tag("Mark")
-                                    Text("Space").tag("Space")
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
@@ -320,7 +323,6 @@ public struct SerialInspectorView: View {
                                 Spacer()
                                 Picker("", selection: $config.stopBits) {
                                     Text("1").tag(1.0)
-                                    Text("1.5").tag(1.5)
                                     Text("2").tag(2.0)
                                 }
                                 .labelsHidden()
@@ -545,6 +547,10 @@ public struct SerialInspectorView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             refreshPorts()
+        }
+        .onDisappear {
+            pasteTask?.cancel()
+            pasteTask = nil
         }
         .onChange(of: serialWatcher.connectedDevices) { _ in
             refreshPorts()

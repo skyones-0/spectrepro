@@ -171,6 +171,11 @@ fn writeDone(write_: ?*ThreadData.Write, _: *xev.Loop, _: *xev.Completion, _: xe
 }
 
 fn configure(fd: c_int, config: Config) !void {
+    if (config.data_bits < 5 or config.data_bits > 8) return error.UnsupportedDataBits;
+    if (config.parity > 2) return error.UnsupportedParity;
+    if (config.stop_bits != 1 and config.stop_bits != 2) return error.UnsupportedStopBits;
+    if (config.flow_control > 2) return error.UnsupportedFlowControl;
+
     var options: c.struct_termios = undefined;
     if (c.tcgetattr(fd, &options) != 0) return error.SerialConfigurationFailed;
     c.cfmakeraw(&options);
@@ -180,7 +185,8 @@ fn configure(fd: c_int, config: Config) !void {
         5 => c.CS5,
         6 => c.CS6,
         7 => c.CS7,
-        else => c.CS8,
+        8 => c.CS8,
+        else => unreachable,
     };
     options.c_cflag &= ~@as(@TypeOf(options.c_cflag), c.PARENB | c.PARODD | c.CSTOPB | c.CRTS_IFLOW | c.CCTS_OFLOW);
     if (config.parity != 0) {

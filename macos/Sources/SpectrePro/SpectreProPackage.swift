@@ -361,6 +361,9 @@ extension SpectrePro.Notification {
     /// New tab. Has base surface config requested in userinfo.
     static let spectreproNewTab = Notification.Name("co.skyones.spectrepro.newTab")
 
+    /// Replace the sending surface with the supplied base configuration.
+    static let spectreproReplaceSurface = Notification.Name("co.skyones.spectrepro.replaceSurface")
+
     /// New window. Has base surface config requested in userinfo.
     static let spectreproNewWindow = Notification.Name("co.skyones.spectrepro.newWindow")
 
