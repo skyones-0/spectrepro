@@ -15,6 +15,7 @@ struct ConfigurationColorPicker: View {
             supportsOpacity: false
         )
         .labelsHidden()
+        .disabled(!value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !ConfigurationColor.isValidHex(value))
         .help("Choose \(label)")
     }
 }
@@ -43,10 +44,16 @@ enum ConfigurationColor {
         keys.contains(key)
     }
 
+    static func isValidHex(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hexadecimal = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+        return hexadecimal.count == 6 && UInt64(hexadecimal, radix: 16) != nil
+    }
+
     static func hex(_ value: String) -> Color {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let hexadecimal = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
-        guard hexadecimal.count == 6, let number = UInt64(hexadecimal, radix: 16) else {
+        guard isValidHex(value), let number = UInt64(hexadecimal, radix: 16) else {
             return .clear
         }
 
