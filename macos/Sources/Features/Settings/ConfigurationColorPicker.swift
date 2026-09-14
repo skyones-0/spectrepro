@@ -26,6 +26,8 @@ enum ConfigurationColor {
         "selection-foreground",
         "selection-background",
         "cursor-color",
+        "cursor-text",
+        "unfocused-split-fill",
         "split-divider-color",
         "search-foreground",
         "search-background",
