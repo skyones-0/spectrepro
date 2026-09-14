@@ -99,7 +99,12 @@ public struct SerialInspectorView: View {
     private func triggerBreakSignal() {
         // The active surface owns the descriptor. Do not open a second fd:
         // that could assert BREAK on a different session than the one shown.
-        surface?.surfaceModel?.sendSerialBreak(durationMilliseconds: 250)
+        guard let surfaceModel = surface?.surfaceModel else {
+            breakFeedbackMessage = "Connect a serial session before sending Break"
+            return
+        }
+
+        surfaceModel.sendSerialBreak(durationMilliseconds: 250)
 
         breakFeedbackMessage = "⚡ Break sent (250ms UART Break condition)"
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
@@ -555,6 +560,8 @@ public struct SerialInspectorView: View {
         .onDisappear {
             pasteTask?.cancel()
             pasteTask = nil
+            isThrottledPasting = false
+            pasteProgressMessage = nil
         }
         .onChange(of: serialWatcher.connectedDevices) { _ in
             refreshPorts()
