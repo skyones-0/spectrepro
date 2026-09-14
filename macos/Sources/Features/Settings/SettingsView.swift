@@ -379,6 +379,9 @@ private final class ConfigurationSettingsModel: ObservableObject {
         clearsThemePalette = false
         loadedValues = currentValues
         isLoaded = true
+
+        let source = app.configurationFileURL?.path ?? "default configuration"
+        AppDiagnostics.event("Loaded settings from \(source).", category: "Settings")
     }
 
     func loadThemes() {
@@ -387,7 +390,9 @@ private final class ConfigurationSettingsModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let themes = Self.loadThemes(executableURL: executableURL)
             DispatchQueue.main.async {
-                self?.availableThemes = themes
+                guard let self else { return }
+                self.availableThemes = themes
+                AppDiagnostics.event("Loaded \(themes.count) bundled themes.", category: "Settings")
             }
         }
     }
@@ -408,6 +413,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
             guard !changedKeys.isEmpty || clearsThemePalette else {
                 didFail = false
                 statusMessage = "No changes to apply."
+                AppDiagnostics.event("Skipped settings save because no values changed.", category: "Settings")
                 return
             }
 
@@ -427,6 +433,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
             loadedValues = values
             clearsThemePalette = false
             hasThemeColorOverrides = Self.hasThemeColorOverrides(at: url)
+            AppDiagnostics.event("Applied settings: \(changedKeys.sorted().joined(separator: ", ")).", category: "Settings")
             if restartNeeded {
                 presentRestartPrompt()
             }
@@ -457,6 +464,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
         backgroundColor = ""
         foregroundColor = ""
         clearsThemePalette = true
+        AppDiagnostics.event("Marked theme color overrides for removal.", category: "Settings")
     }
 
     private var currentValues: [String: String] {
@@ -568,6 +576,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
             app.reloadConfig()
             didFail = false
             statusMessage = "Applied \(option.key)."
+            AppDiagnostics.event("Applied advanced setting \(option.key).", category: "Settings")
         } catch {
             fail("Could not save configuration: \(error.localizedDescription)")
         }
@@ -576,6 +585,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
     private func fail(_ message: String) {
         didFail = true
         statusMessage = message
+        AppDiagnostics.error(message, category: "Settings")
     }
 
     private func readValue(for key: String, at url: URL?) -> String? {

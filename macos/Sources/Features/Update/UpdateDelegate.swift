@@ -27,6 +27,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
             retryTerminatingApplication: immediateInstallHandler
         ))
         AppDelegate.logger.info("Version: \(item.displayVersionString) installed silently, waiting for relaunch...")
+        AppDiagnostics.event("Update \(item.displayVersionString) is ready for relaunch.", category: "Updates")
         // Even when hasUnobtrusiveTarget is false, we don't show the alert immediately.
         // We wait until the user manually checks for updates or relaunches.
         return true
