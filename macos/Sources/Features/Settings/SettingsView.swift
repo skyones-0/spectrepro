@@ -27,34 +27,12 @@ struct SettingsView: View {
             }
             .tabItem { Label("Privacy", systemImage: "lock") }
 
-            VStack(alignment: .leading, spacing: 16) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 32))
-                    .foregroundStyle(.tint)
-
-                Text("Advanced Configuration")
-                    .font(.title2.weight(.semibold))
-
-                Text("Use the configuration file for key bindings, custom themes, and specialized options. Changes made here are preserved by the native Settings panels.")
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack {
-                    Button("Open Configuration File") {
-                        appDelegate.openConfig(nil)
-                    }
-
-                    Button("Reload Configuration") {
-                        appDelegate.reloadConfig(nil)
-                    }
-                }
-
-                Spacer()
-            }
-            .padding(28)
-            .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
-
-            ConfigurationReferenceView(configuration: configuration, app: appDelegate.spectrepro)
+            ConfigurationReferenceView(
+                configuration: configuration,
+                app: appDelegate.spectrepro,
+                openConfiguration: { appDelegate.openConfig(nil) },
+                reloadConfiguration: { appDelegate.reloadConfig(nil) }
+            )
                 .tabItem { Label("All Settings", systemImage: "list.bullet.rectangle") }
         }
         .task {
@@ -62,36 +40,40 @@ struct SettingsView: View {
             configuration.loadReference(from: appDelegate.spectrepro)
             configuration.loadThemes()
         }
-        .frame(minWidth: 680, idealWidth: 760, minHeight: 500, idealHeight: 580)
+        .frame(minWidth: 620, idealWidth: 680, minHeight: 460, idealHeight: 520)
     }
 }
 
 private struct AppearanceSettingsTab: View {
     @ObservedObject var configuration: ConfigurationSettingsModel
     let apply: () -> Void
+    @State private var showsCustomThemeInput = false
 
     var body: some View {
         Form {
             Section("Theme") {
-                HStack {
-                    TextField("Theme name or path", text: $configuration.theme, prompt: Text("System default"))
-                        .textFieldStyle(.roundedBorder)
-
-                    Menu("Available Themes") {
-                        Button("System Default") { configuration.theme = "" }
-                        Divider()
-                        ForEach(configuration.availableThemes, id: \.self) { theme in
-                            Button(theme) { configuration.theme = theme }
-                        }
+                Picker("Theme", selection: $configuration.theme) {
+                    Text("System Default").tag("")
+                    ForEach(configuration.availableThemes, id: \.self) { theme in
+                        Text(theme).tag(theme)
                     }
-                    .disabled(configuration.availableThemes.isEmpty)
                 }
+                .pickerStyle(.menu)
+                .disabled(configuration.availableThemes.isEmpty)
 
                 Text(configuration.availableThemes.isEmpty
                     ? "Loading bundled themes…"
-                    : "Choose a bundled theme or enter a custom theme name or file path. Custom colors override a theme.")
+                    : "Choose one of the bundled themes. Custom colors override a theme.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+
+                DisclosureGroup("Use a custom theme file", isExpanded: $showsCustomThemeInput) {
+                    TextField("Theme file path or custom theme name", text: $configuration.theme)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Use this only for a theme outside the bundled collection.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
 
                 if configuration.hasThemeColorOverrides {
                     Button("Use Theme Colors") {
@@ -153,7 +135,10 @@ private struct AppearanceSettingsTab: View {
             SettingsApplyBar(configuration: configuration, apply: apply)
         }
         .formStyle(.grouped)
-        .padding()
+        .padding(.horizontal)
+        .onAppear {
+            showsCustomThemeInput = configuration.usesCustomTheme
+        }
     }
 
 }
@@ -196,7 +181,7 @@ private struct TerminalSettingsTab: View {
             SettingsApplyBar(configuration: configuration, apply: apply)
         }
         .formStyle(.grouped)
-        .padding()
+        .padding(.horizontal)
     }
 }
 
@@ -244,7 +229,7 @@ private struct WindowSettingsTab: View {
             SettingsApplyBar(configuration: configuration, apply: apply)
         }
         .formStyle(.grouped)
-        .padding()
+        .padding(.horizontal)
     }
 }
 
@@ -287,7 +272,7 @@ private struct PrivacySettingsTab: View {
             SettingsApplyBar(configuration: configuration, apply: apply)
         }
         .formStyle(.grouped)
-        .padding()
+        .padding(.horizontal)
     }
 }
 
@@ -465,6 +450,10 @@ private final class ConfigurationSettingsModel: ObservableObject {
         foregroundColor = ""
         clearsThemePalette = true
         AppDiagnostics.event("Marked theme color overrides for removal.", category: "Settings")
+    }
+
+    var usesCustomTheme: Bool {
+        !theme.isEmpty && !availableThemes.contains(theme)
     }
 
     private var currentValues: [String: String] {
@@ -841,6 +830,8 @@ private enum ConfigurationCategory: String, CaseIterable, Identifiable {
 private struct ConfigurationReferenceView: View {
     @ObservedObject var configuration: ConfigurationSettingsModel
     let app: SpectrePro.App
+    let openConfiguration: () -> Void
+    let reloadConfiguration: () -> Void
     @State private var category: ConfigurationCategory?
     @State private var search = ""
 
@@ -927,8 +918,19 @@ private struct ConfigurationReferenceView: View {
                     .navigationTitle(category?.rawValue ?? "All Settings")
                     .searchable(text: $search, prompt: "Search settings")
                     .toolbar {
-                        Button("Refresh Values", systemImage: "arrow.clockwise") {
-                            configuration.refreshReferenceValues(from: app)
+                        ToolbarItemGroup {
+                            Button("Open Config", systemImage: "doc") {
+                                openConfiguration()
+                            }
+
+                            Button("Reload", systemImage: "arrow.triangle.2.circlepath") {
+                                reloadConfiguration()
+                                configuration.refreshReferenceValues(from: app)
+                            }
+
+                            Button("Refresh Values", systemImage: "arrow.clockwise") {
+                                configuration.refreshReferenceValues(from: app)
+                            }
                         }
                     }
                 }
