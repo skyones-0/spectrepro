@@ -11,9 +11,9 @@ const global = @import("../global.zig");
 /// On Linux, this will use the file at the XDG config path. This is the
 /// only valid path for Linux so we don't need to check for other paths.
 ///
-/// On macOS, both XDG and AppSupport paths are valid. Because SpectrePro
-/// prioritizes AppSupport over XDG, we will use AppSupport if it exists,
-/// followed by XDG if it exists, and finally AppSupport if neither exist.
+/// On macOS, both XDG and AppSupport paths are valid. SpectrePro prioritizes
+/// XDG over AppSupport, so we use XDG if it exists, followed by AppSupport
+/// if it exists, and finally XDG if neither exist.
 /// For the existence check, we also prefer non-empty files over empty
 /// files.
 ///
@@ -124,13 +124,13 @@ fn configPathCandidates(alloc_arena: Allocator) ![]const []const u8 {
     var paths: std.ArrayList([]const u8) = try .initCapacity(alloc_arena, 4);
     errdefer paths.deinit(alloc_arena);
 
+    paths.appendAssumeCapacity(try file_load.defaultXdgPath(alloc_arena));
+    paths.appendAssumeCapacity(try file_load.legacyDefaultXdgPath(alloc_arena));
+
     if (comptime builtin.os.tag == .macos) {
         paths.appendAssumeCapacity(try file_load.defaultAppSupportPath(alloc_arena));
         paths.appendAssumeCapacity(try file_load.legacyDefaultAppSupportPath(alloc_arena));
     }
-
-    paths.appendAssumeCapacity(try file_load.defaultXdgPath(alloc_arena));
-    paths.appendAssumeCapacity(try file_load.legacyDefaultXdgPath(alloc_arena));
 
     return paths.items;
 }

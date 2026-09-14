@@ -31,12 +31,9 @@ pub const Options = struct {
 /// this yet.
 ///
 /// The filepath opened is the default user-specific configuration
-/// file, which is typically located at `$XDG_CONFIG_HOME/spectrepro/config.spectrepro`.
-/// On macOS, this may also be located at
-/// `~/Library/Application Support/co.skyones.spectrepro/config.spectrepro`.
-/// On macOS, whichever path exists and is non-empty will be prioritized,
-/// prioritizing the Application Support directory if neither are
-/// non-empty.
+/// file, which is typically located at `$XDG_CONFIG_HOME/spectrepro/config`.
+/// On macOS, the legacy Application Support paths remain supported as a
+/// fallback when no XDG configuration exists.
 ///
 /// This command prefers the `$VISUAL` environment variable over `$EDITOR`,
 /// if both are set. If neither are set, it will print an error
