@@ -35,10 +35,15 @@ public final class SerialDeviceWatcher: ObservableObject {
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: "/dev") else { return [] }
         return files
             .filter { $0.hasPrefix("cu.") }
+            .filter { !isInternalPort(filename: $0) }
             .map { filename in
                 let fullPath = "/dev/" + filename
                 let name = filename.replacingOccurrences(of: "cu.", with: "")
-                let isUSB = filename.contains("usb") || filename.contains("uart") || filename.contains("wch") || filename.contains("slab")
+                let isUSB = filename.lowercased().contains("usb") ||
+                    filename.lowercased().contains("uart") ||
+                    filename.lowercased().contains("wch") ||
+                    filename.lowercased().contains("slab") ||
+                    filename.lowercased().contains("ftdi")
                 return SerialDevice(bsdPath: fullPath, name: name, isUSB: isUSB, connectedAt: Date())
             }
             .sorted { $0.name < $1.name }
@@ -149,7 +154,7 @@ public final class SerialDeviceWatcher: ObservableObject {
             if let device = extractSerialDevice(from: service) {
                 if !connectedDevices.contains(where: { $0.bsdPath == device.bsdPath }) {
                     connectedDevices.append(device)
-                    if device.isUSB {
+                    if device.isUSB && !isInitialScan {
                         triggerAlert(for: device)
                     }
                 }
@@ -203,14 +208,8 @@ public final class SerialDeviceWatcher: ObservableObject {
 
     private func extractSerialDevice(from service: io_service_t) -> SerialDevice? {
         guard let bsdPath = getCalloutPath(from: service) else { return nil }
-
-        // Filter out built-in Apple internal virtual or debug serial ports
-        let lower = bsdPath.lowercased()
-        if lower.contains("bluetooth") || lower.contains("debug-console") || lower.contains("wirelessap") {
-            return nil
-        }
-
-        let isUSB = true
+        guard !Self.isInternalPort(filename: (bsdPath as NSString).lastPathComponent) else { return nil }
+        guard isUSBSerialDevice(service) else { return nil }
 
         // Traverse IORegistry parents to discover friendly USB product name
         var friendlyName = (bsdPath as NSString).lastPathComponent
@@ -236,8 +235,40 @@ public final class SerialDeviceWatcher: ObservableObject {
         return SerialDevice(
             bsdPath: bsdPath,
             name: friendlyName,
-            isUSB: isUSB,
+            isUSB: true,
             connectedAt: Date()
         )
+    }
+
+    private static func isInternalPort(filename: String) -> Bool {
+        let lower = filename.lowercased()
+        return lower.contains("bluetooth") ||
+            lower.contains("debug-console") ||
+            lower.contains("wlan-debug") ||
+            lower.contains("wirelessap")
+    }
+
+    private func isUSBSerialDevice(_ service: io_service_t) -> Bool {
+        var current = service
+        IOObjectRetain(current)
+
+        while current != 0 {
+            if IOObjectConformsTo(current, "IOUSBHostDevice") != 0 ||
+                IOObjectConformsTo(current, "IOUSBDevice") != 0 {
+                IOObjectRelease(current)
+                return true
+            }
+
+            var parent: io_registry_entry_t = 0
+            if IORegistryEntryGetParentEntry(current, kIOServicePlane, &parent) == KERN_SUCCESS {
+                IOObjectRelease(current)
+                current = parent
+            } else {
+                IOObjectRelease(current)
+                break
+            }
+        }
+
+        return false
     }
 }
