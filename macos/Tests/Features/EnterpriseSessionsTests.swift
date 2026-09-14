@@ -279,6 +279,65 @@ struct EnterpriseSessionsTests {
         #expect(surfaceConfiguration.serialParity == 1)
         #expect(surfaceConfiguration.serialStopBits == 2)
         #expect(surfaceConfiguration.serialFlowControl == 1)
+    @Test func testSerialRescanPreservesConfigurationForSameDevice() {
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: "/dev/cu.usbserial-A101",
+            newPath: "/dev/cu.usbserial-A101"
+        ) == false)
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: "/dev/cu.usbserial-A101",
+            newPath: "/dev/cu.usbserial-B202"
+        ) == true)
+        #expect(SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: nil,
+            newPath: "/dev/cu.usbserial-A101"
+        ) == true)
+    @Test func testSerialPasteEngineUsesConfiguredDelays() async throws {
+        actor Recorder {
+            var sent: [String] = []
+            var sleeps: [UInt64] = []
+
+            func recordText(_ text: String) {
+                sent.append(text)
+            }
+
+            func recordSleep(_ nanoseconds: UInt64) {
+                sleeps.append(nanoseconds)
+            }
+        }
+
+        let recorder = Recorder()
+        try await SerialPasteEngine.paste(
+            "ab\ncd",
+            lineDelayMs: 50,
+            charDelayMs: 2,
+            sendText: { text in await recorder.recordText(text) },
+            sleep: { nanoseconds in await recorder.recordSleep(nanoseconds) }
+        )
+
+        #expect(await recorder.sent == ["a", "b", "\n", "c", "d", "\n"])
+        #expect(await recorder.sleeps == [2_000_000, 2_000_000, 50_000_000, 2_000_000, 2_000_000])
+    }
+
+    @Test func testSerialPasteEngineDoesNotSleepWhenDelaysAreDisabled() async throws {
+        actor Recorder {
+            var sleeps = 0
+
+            func recordSleep() {
+                sleeps += 1
+            }
+        }
+
+        let recorder = Recorder()
+        try await SerialPasteEngine.paste(
+            "a\nb",
+            lineDelayMs: 0,
+            charDelayMs: 0,
+            sendText: { _ in },
+            sleep: { _ in await recorder.recordSleep() }
+        )
+
+        #expect(await recorder.sleeps == 0)
     }
 
     // MARK: - 7. High-Throughput, Concurrency & Stress Benchmark Tests

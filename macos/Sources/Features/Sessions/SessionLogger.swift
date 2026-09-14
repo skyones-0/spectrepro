@@ -10,6 +10,7 @@ public final class SessionLogger: ObservableObject {
     @Published public private(set) var currentLogURL: URL? = nil
     @Published public private(set) var recordedBytes: Int = 0
     @Published public private(set) var elapsedTimeFormatted: String = "00:00"
+    @Published public private(set) var lastError: String?
 
     // Configuration options
     @Published public var prependTimestamps: Bool = true
@@ -30,9 +31,9 @@ public final class SessionLogger: ObservableObject {
     }
 
     public var logsDirectoryURL: URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents")
         let spectreLogs = docs.appendingPathComponent("Spectre Pro Logs", isDirectory: true)
-        try? FileManager.default.createDirectory(at: spectreLogs, withIntermediateDirectories: true)
         return spectreLogs
     }
 
@@ -48,13 +49,28 @@ public final class SessionLogger: ObservableObject {
         let filename = "\(dateFormatter.string(from: Date()))_\(cleanName.isEmpty ? "session" : cleanName).log"
         let logURL = logsDirectoryURL.appendingPathComponent(filename)
 
-        FileManager.default.createFile(atPath: logURL.path, contents: nil)
-        guard let handle = try? FileHandle(forWritingTo: logURL) else { return }
+        do {
+            try FileManager.default.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: logsDirectoryURL.path)
+            guard FileManager.default.createFile(atPath: logURL.path, contents: nil) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: logURL.path)
+        } catch {
+            lastError = "Could not create session log: \(error.localizedDescription)"
+            return
+        }
+
+        guard let handle = try? FileHandle(forWritingTo: logURL) else {
+            lastError = "Could not open session log for writing."
+            return
+        }
 
         self.fileHandle = handle
         self.currentSessionName = cleanName.isEmpty ? "Terminal Session" : cleanName
         self.currentLogURL = logURL
         self.recordedBytes = 0
+        self.lastError = nil
         self.isRecording = true
         self.startTime = Date()
         self.elapsedTimeFormatted = "00:00"

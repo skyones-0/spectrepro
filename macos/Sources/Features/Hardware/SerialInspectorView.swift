@@ -36,6 +36,39 @@ public struct SerialConnectionConfig: Equatable {
 
 }
 
+enum SerialInspectorSelection {
+    static func requiresConfigurationReset(previousPath: String?, newPath: String) -> Bool {
+        previousPath != newPath
+public enum SerialPasteEngine {
+    public static func paste(
+        _ text: String,
+        lineDelayMs: Int,
+        charDelayMs: Int,
+        sendText: @escaping (String) async -> Void,
+        sleep: @escaping (UInt64) async throws -> Void
+    ) async throws {
+        let lines = text.components(separatedBy: .newlines)
+        let lineDelay = UInt64(max(lineDelayMs, 0)) * 1_000_000
+        let charDelay = UInt64(max(charDelayMs, 0)) * 1_000_000
+
+        for (lineIndex, line) in lines.enumerated() {
+            for character in line {
+                try Task.checkCancellation()
+                await sendText(String(character))
+                if charDelay > 0 {
+                    try await sleep(charDelay)
+                }
+            }
+
+            try Task.checkCancellation()
+            await sendText("\n")
+            if lineIndex < lines.count - 1, lineDelay > 0 {
+                try await sleep(lineDelay)
+            }
+        }
+    }
+}
+
 public struct SerialInspectorView: View {
     @ObservedObject var serialWatcher = SerialDeviceWatcher.shared
     @ObservedObject var state = QuickCommandsState.shared
@@ -77,15 +110,29 @@ public struct SerialInspectorView: View {
         if let targetPath = state.selectedSerialDevicePath,
            let match = availablePorts.first(where: { $0.bsdPath == targetPath }) {
             selectDevice(match)
+        } else if let selectedDevice,
+                  !availablePorts.contains(where: { $0.bsdPath == selectedDevice.bsdPath }) {
+            if let first = availablePorts.first {
+                selectDevice(first)
+            } else {
+                self.selectedDevice = nil
+                state.selectedSerialDevicePath = nil
+            }
         } else if selectedDevice == nil, let first = availablePorts.first {
             selectDevice(first)
         }
     }
 
     private func selectDevice(_ dev: SerialDevice) {
+        let shouldResetConfiguration = SerialInspectorSelection.requiresConfigurationReset(
+            previousPath: selectedDevice?.bsdPath,
+            newPath: dev.bsdPath
+        )
         selectedDevice = dev
         state.selectedSerialDevicePath = dev.bsdPath
-        config = .default(for: dev.bsdPath, name: dev.name)
+        if shouldResetConfiguration {
+            config = .default(for: dev.bsdPath, name: dev.name)
+        }
     }
 
     // MARK: - Hardware Break Signal
@@ -123,39 +170,38 @@ public struct SerialInspectorView: View {
             return
         }
 
-        let lines = clipboardText.components(separatedBy: .newlines)
-        let totalLines = lines.count
-        let lineDelay = max(config.lineDelayMs, 20)
+        let totalLines = clipboardText.components(separatedBy: .newlines).count
+        let lineDelay = max(config.lineDelayMs, 0)
+        let charDelay = max(config.charDelayMs, 0)
 
         isThrottledPasting = true
         pasteProgressMessage = "Pasting 0/\(totalLines)..."
 
         pasteTask?.cancel()
         pasteTask = Task { @MainActor in
-            for (idx, line) in lines.enumerated() {
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    pasteProgressMessage = "Pasting \(idx + 1)/\(totalLines)..."
-                    surface.surfaceModel?.sendText(line + "\n")
-                }
-                do {
-                    try await Task.sleep(nanoseconds: UInt64(lineDelay) * 1_000_000)
-                } catch {
-                    return
-                }
-            }
-
-            await MainActor.run {
+            do {
+                var currentLine = 0
+                try await SerialPasteEngine.paste(
+                    clipboardText,
+                    lineDelayMs: lineDelay,
+                    charDelayMs: charDelay,
+                    sendText: { text in
+                        surface.surfaceModel?.sendText(text)
+                        if text == "\n" {
+                            currentLine += 1
+                            pasteProgressMessage = "Pasting \(currentLine)/\(totalLines)..."
+                        }
+                    },
+                    sleep: { nanoseconds in
+                        try await Task.sleep(nanoseconds: nanoseconds)
+                    }
+                )
                 isThrottledPasting = false
                 pasteProgressMessage = "✓ \(totalLines) lines pasted"
-            }
-            do {
                 try await Task.sleep(nanoseconds: 2_000_000_000)
-            } catch {
-                return
-            }
-            await MainActor.run {
                 pasteProgressMessage = nil
+            } catch {
+                isThrottledPasting = false
             }
         }
     }
@@ -289,7 +335,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Data Bits
@@ -305,7 +350,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Parity
@@ -320,7 +364,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Stop Bits
@@ -334,7 +377,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Flow Control
@@ -349,7 +391,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
                         }
                         .padding(8)
@@ -390,7 +431,6 @@ public struct SerialInspectorView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                .focusable(false)
                             }
 
                             if let msg = breakFeedbackMessage {
@@ -417,8 +457,27 @@ public struct SerialInspectorView: View {
                                     }
                                     .labelsHidden()
                                     .frame(width: 120)
+                                }
+
+                                HStack {
+                                    Text("Character Delay")
+                                        .font(.system(size: 11))
+                                    Spacer()
+                                    Picker("", selection: $config.charDelayMs) {
+                                        Text("None (0ms)").tag(0)
+                                        Text("1 ms").tag(1)
+                                        Text("2 ms").tag(2)
+                                        Text("5 ms").tag(5)
+                                        Text("10 ms").tag(10)
+                                    }
+                                    .labelsHidden()
+                                    .frame(width: 120)
                                     .focusable(false)
                                 }
+
+                                Text("Character delay applies between characters; line delay applies between lines.")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.secondary)
 
                                 HStack {
                                     Button {
@@ -456,6 +515,24 @@ public struct SerialInspectorView: View {
                             Text("Shell exit, Delete key, and VT100 keypad options apply only to terminal sessions.")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
+
+                            HStack {
+                                Text("When shell exits")
+                                    .font(.system(size: 11))
+                                Spacer()
+                                Picker("", selection: $config.closeOnExit) {
+                                    Text("Don't close terminal").tag(false)
+                                    Text("Close terminal").tag(true)
+                                }
+                                .labelsHidden()
+                                .frame(width: 140)
+                            }
+
+                            Toggle("Delete sends Control-H", isOn: $config.deleteSendsCtrlH)
+                                .font(.system(size: 11))
+
+                            Toggle("Allow VT100 application keypad mode", isOn: $config.vt100Keypad)
+                                .font(.system(size: 11))
                         }
                         .padding(8)
                         .background(Color(nsColor: .controlBackgroundColor))
