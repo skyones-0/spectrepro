@@ -11,6 +11,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     configuration
                     statusGrid
+                    workflows
                     if !coordinator.alerts.isEmpty { alerts }
                     releaseFlow
                 }
@@ -46,6 +47,7 @@ struct ContentView: View {
             }
             Spacer()
             Button("Refresh", systemImage: "arrow.clockwise") { coordinator.inspect() }
+                .accessibilityIdentifier("refresh")
                 .disabled(coordinator.isWorking)
         }
         .padding(24)
@@ -59,6 +61,7 @@ struct ContentView: View {
                     TextField("Repository path", text: $coordinator.repositoryPath)
                         .textFieldStyle(.roundedBorder)
                     Button("Choose…") { coordinator.chooseRepository() }
+                        .accessibilityIdentifier("chooseRepository")
                 }
                 GridRow {
                     Text("GitHub repository").foregroundStyle(.secondary)
@@ -70,6 +73,7 @@ struct ContentView: View {
                     SecureField("Fine-grained token", text: $coordinator.githubToken)
                         .textFieldStyle(.roundedBorder)
                     Button("Save to Keychain") { coordinator.saveToken() }
+                        .accessibilityIdentifier("saveToken")
                 }
             }
             .padding(.top, 4)
@@ -108,6 +112,51 @@ struct ContentView: View {
         }
     }
 
+    private var workflows: some View {
+        GroupBox("GitHub Workflows") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Shows the enabled workflows and the latest run for each one.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Refresh Workflows", systemImage: "arrow.clockwise") { coordinator.refreshWorkflows() }
+                        .disabled(coordinator.isWorking)
+                        .accessibilityIdentifier("refreshWorkflows")
+                }
+
+                if coordinator.workflowStates.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "point.3.connected.trianglepath.dotted")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                        Text("No workflows loaded")
+                            .foregroundStyle(.secondary)
+                    }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                } else {
+                    ForEach(coordinator.workflowStates) { workflow in
+                        HStack(spacing: 10) {
+                            Image(systemName: workflow.isActive ? "checkmark.circle.fill" : "pause.circle.fill")
+                                .foregroundStyle(workflow.isActive ? .green : .secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(workflow.name).fontWeight(.medium)
+                                Text(workflow.path).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(workflow.presentation.capitalized)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(workflow.conclusion == "failure" ? .red : .secondary)
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
     private var releaseFlow: some View {
         GroupBox("Release Flow") {
             VStack(alignment: .leading, spacing: 14) {
@@ -131,6 +180,7 @@ struct ContentView: View {
                     Button("Sign & Publish", systemImage: "signature") { coordinator.publishRelease() }
                         .buttonStyle(.borderedProminent)
                         .disabled(coordinator.isWorking || coordinator.workingTree != "Clean")
+                        .accessibilityIdentifier("publishRelease")
                     Button("Check Release", systemImage: "dot.radiowaves.left.and.right") { coordinator.refreshReleaseWorkflow() }
                         .disabled(coordinator.isWorking)
                 }
@@ -173,5 +223,6 @@ private struct FlowButton: View {
                 .frame(maxWidth: .infinity)
         }
         .disabled(coordinator.isWorking)
+        .accessibilityIdentifier("flowAction-\(number)")
     }
 }

@@ -31,12 +31,14 @@ final class ReleaseCoordinator: ObservableObject {
     @Published private(set) var pullRequestNumber: Int?
     @Published private(set) var checks = "Not checked"
     @Published private(set) var workflow = "Not started"
+    @Published private(set) var workflowStates = [WorkflowStatus]()
     @Published private(set) var latestTag = "—"
     @Published private(set) var alerts = [ReleaseAlert]()
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var message = "Choose the repository, then inspect its release state."
     @Published private(set) var isWorking = false
     private var monitorTask: Task<Void, Never>?
+    private var lastWorkflowRefresh: Date?
 
     init() {
         repositoryPath = FileManager.default.currentDirectoryPath
@@ -101,10 +103,8 @@ final class ReleaseCoordinator: ObservableObject {
             let checksResponse: CheckRuns = try await github(
                 path: "/repos/\(validatedRepository)/commits/\(pullRequest.head.sha)/check-runs"
             )
-            let pending = checksResponse.checkRuns.contains { $0.status != "completed" }
-            let failed = checksResponse.checkRuns.contains { $0.conclusion != "success" && $0.conclusion != "skipped" }
-            checks = pending ? "Waiting for checks" : failed ? "Checks failed" : "All checks passed"
-            message = pending ? "GitHub Actions is still running." : failed ? "Resolve failed checks before merging." : "All required checks passed."
+            checks = ReleaseRules.checksState(for: checksResponse.checkRuns)
+            message = checks == "Waiting for checks" ? "GitHub Actions is still running." : checks == "Checks failed" ? "Resolve failed checks before merging." : "All required checks passed."
         }
     }
 
@@ -150,6 +150,13 @@ final class ReleaseCoordinator: ObservableObject {
         }
     }
 
+    func refreshWorkflows() {
+        perform("Loading GitHub workflows…") { [self] in
+            try await updateWorkflowStates()
+            message = "Loaded \(workflowStates.count) workflows."
+        }
+    }
+
     func stopMonitoring() {
         monitorTask?.cancel()
         monitorTask = nil
@@ -170,6 +177,10 @@ final class ReleaseCoordinator: ObservableObject {
             try await inspectRepository(updateSuggestedVersion: false)
             if pullRequestNumber != nil { try await updatePullRequestChecks() }
             if !releaseVersion.isEmpty { try await updateReleaseWorkflow() }
+            if !githubToken.isEmpty,
+               lastWorkflowRefresh.map({ Date.now.timeIntervalSince($0) >= 60 }) ?? true {
+                try await updateWorkflowStates()
+            }
             lastUpdated = .now
         } catch {
             addAlert(.warning, title: "Monitoring paused", detail: error.localizedDescription)
@@ -183,7 +194,7 @@ final class ReleaseCoordinator: ObservableObject {
         latestTag = try await git(["tag", "--sort=-version:refname"])
             .split(separator: "\n").first.map(String.init) ?? "No tags"
         if updateSuggestedVersion, releaseVersion.isEmpty, latestTag.hasPrefix("v") {
-            releaseVersion = nextPatchVersion(after: String(latestTag.dropFirst()))
+            releaseVersion = ReleaseRules.nextPatchVersion(after: String(latestTag.dropFirst())) ?? ""
         }
         if status.isEmpty {
             removeAlert(id: "working-tree")
@@ -201,10 +212,8 @@ final class ReleaseCoordinator: ObservableObject {
         guard let pullRequestNumber else { return }
         let pullRequest: PullRequest = try await github(path: "/repos/\(validatedRepository)/pulls/\(pullRequestNumber)")
         let checksResponse: CheckRuns = try await github(path: "/repos/\(validatedRepository)/commits/\(pullRequest.head.sha)/check-runs")
-        let pending = checksResponse.checkRuns.contains { $0.status != "completed" }
-        let failed = checksResponse.checkRuns.contains { $0.conclusion != "success" && $0.conclusion != "skipped" }
-        checks = pending ? "Waiting for checks" : failed ? "Checks failed" : "All checks passed"
-        if failed {
+        checks = ReleaseRules.checksState(for: checksResponse.checkRuns)
+        if checks == "Checks failed" {
             addAlert(.critical, id: "checks", title: "Pull request checks failed", detail: "Do not merge or release until all required checks pass.")
         } else {
             removeAlert(id: "checks")
@@ -227,34 +236,45 @@ final class ReleaseCoordinator: ObservableObject {
         }
     }
 
-    private func nextPatchVersion(after version: String) -> String {
-        let components = version.split(separator: ".").compactMap { Int($0) }
-        guard components.count == 3 else { return version }
-        return "\(components[0]).\(components[1]).\(components[2] + 1)"
+    private func updateWorkflowStates() async throws {
+        struct Workflows: Decodable { let workflows: [Workflow] }
+        struct Runs: Decodable {
+            let workflowRuns: [WorkflowRun]
+            enum CodingKeys: String, CodingKey { case workflowRuns = "workflow_runs" }
+        }
+
+        let workflows: Workflows = try await github(path: "/repos/\(validatedRepository)/actions/workflows?per_page=100")
+        var statuses = [WorkflowStatus]()
+        for workflow in workflows.workflows.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending }) {
+            let runs: Runs = try await github(path: "/repos/\(validatedRepository)/actions/workflows/\(workflow.id)/runs?per_page=1")
+            let latestRun = runs.workflowRuns.first
+            statuses.append(.init(
+                id: workflow.id,
+                name: workflow.name,
+                path: workflow.path,
+                isActive: workflow.state == "active",
+                status: latestRun?.status ?? "No runs",
+                conclusion: latestRun?.conclusion
+            ))
+        }
+        workflowStates = statuses
+        lastWorkflowRefresh = .now
+        for workflow in statuses {
+            let alertID = "workflow-\(workflow.id)"
+            if workflow.conclusion == "failure" {
+                addAlert(.critical, id: alertID, title: "Workflow failed: \(workflow.name)", detail: workflow.path)
+            } else {
+                removeAlert(id: alertID)
+            }
+        }
     }
 
     private func validateReleaseVersion() throws {
-        guard releaseVersion.range(of: "^[0-9]+\\.[0-9]+\\.[0-9]+$", options: .regularExpression) != nil else {
-            throw ReleasePilotError.invalidVersion
-        }
         let manifestURL = URL(fileURLWithPath: repositoryPath).appendingPathComponent("build.zig.zon")
-        guard let manifest = try? String(contentsOf: manifestURL, encoding: .utf8),
-              let match = manifest.range(of: #"\.version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)""#, options: .regularExpression) else {
+        guard let manifest = try? String(contentsOf: manifestURL, encoding: .utf8) else {
             throw ReleasePilotError.commandFailed("Could not read the semantic version from build.zig.zon.")
         }
-        let sourceVersion = manifest[match].split(separator: "\"").dropFirst().first.map(String.init)
-        guard sourceVersion == releaseVersion else {
-            throw ReleasePilotError.commandFailed("build.zig.zon declares \(sourceVersion ?? "an invalid version"), not \(releaseVersion). Update the project version before publishing.")
-        }
-        if latestTag.hasPrefix("v"), !isVersion(releaseVersion, greaterThan: String(latestTag.dropFirst())) {
-            throw ReleasePilotError.commandFailed("\(releaseVersion) must be greater than the latest tag, \(latestTag).")
-        }
-    }
-
-    private func isVersion(_ lhs: String, greaterThan rhs: String) -> Bool {
-        zip(lhs.split(separator: ".").compactMap { Int($0) }, rhs.split(separator: ".").compactMap { Int($0) })
-            .first(where: { $0 != $1 })
-            .map { $0 > $1 } ?? false
+        try ReleaseRules.validate(version: releaseVersion, manifest: manifest, latestTag: latestTag)
     }
 
     private func addAlert(_ severity: ReleaseAlert.Severity, id: String = UUID().uuidString, title: String, detail: String) {
@@ -333,9 +353,31 @@ private enum ProcessRunner {
 
 private struct PullRequest: Decodable { let number: Int; let head: Head; struct Head: Decodable { let sha: String } }
 private struct CheckRuns: Decodable { let checkRuns: [CheckRun]; enum CodingKeys: String, CodingKey { case checkRuns = "check_runs" } }
-private struct CheckRun: Decodable { let status: String; let conclusion: String? }
+struct CheckRun: Decodable { let status: String; let conclusion: String? }
 private struct WorkflowRun: Decodable { let status: String; let conclusion: String?; let headBranch: String; let htmlURL: String; enum CodingKeys: String, CodingKey { case status, conclusion; case headBranch = "head_branch"; case htmlURL = "html_url" } }
 private struct GitHubError: Decodable { let message: String }
+
+private struct Workflow: Decodable {
+    let id: Int
+    let name: String
+    let path: String
+    let state: String
+}
+
+struct WorkflowStatus: Identifiable {
+    let id: Int
+    let name: String
+    let path: String
+    let isActive: Bool
+    let status: String
+    let conclusion: String?
+
+    var presentation: String {
+        guard status != "No runs" else { return status }
+        guard status != "completed" else { return conclusion ?? "Completed" }
+        return status
+    }
+}
 
 struct ReleaseAlert: Identifiable {
     enum Severity { case warning, critical }
