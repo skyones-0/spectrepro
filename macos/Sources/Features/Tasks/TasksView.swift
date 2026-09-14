@@ -140,6 +140,41 @@ public struct TasksView: View {
                                     showsDeleteConfirmation = true
                                 }
                             )
+                if filteredTasks.isEmpty {
+                    VStack(spacing: 10) {
+                        Spacer()
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.secondary.opacity(0.5))
+                        Text("No Matching Tasks")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Text("Try a different title or command.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary.opacity(0.7))
+                        Button("Clear Filter") { searchText = "" }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        Spacer()
+                    }
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 6) {
+                            ForEach(filteredTasks) { task in
+                                TaskRowCard(
+                                    task: task,
+                                    isSelected: selectedTaskId == task.id,
+                                    onSelect: {
+                                        if selectedTaskId == task.id {
+                                            selectedTaskId = nil
+                                        } else {
+                                            selectedTaskId = task.id
+                                        }
+                                    },
+                                    onStop: { taskManager.stop(id: task.id) },
+                                    onDelete: { taskManager.remove(id: task.id) }
+                                )
+                            }
                         }
                     }
                     .padding(.vertical, 2)

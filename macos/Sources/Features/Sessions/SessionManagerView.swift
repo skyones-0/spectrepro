@@ -242,16 +242,6 @@ public final class SessionLibrary: ObservableObject {
             }
         }
 
-        if loaded.isEmpty {
-            // Sensible defaults matching user's enterprise network context
-            loaded = [
-                SavedSession(name: "Router Gateway", folder: "Local", host: "192.168.1.1", user: "admin", environmentBadge: "LAB"),
-                SavedSession(name: "Fortigate FW", folder: "SSH", host: "10.0.0.1", user: "admin", environmentBadge: "PROD"),
-                SavedSession(name: "OCI VM 01", folder: "SSH", host: "oracle-cloud.internal", user: "opc", environmentBadge: "DEV")
-            ]
-            save(loaded)
-        }
-
         self.sessions = loaded
     }
 
