@@ -45,7 +45,7 @@ struct UpdatePopoverView: View {
                 UpdateErrorView(error: error, dismiss: dismiss)
             }
         }
-        .frame(width: 300)
+        .frame(minWidth: 300, idealWidth: 360, maxWidth: 420)
     }
 }
 
