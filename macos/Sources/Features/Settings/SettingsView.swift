@@ -60,6 +60,7 @@ struct SettingsView: View {
         .task {
             configuration.load(from: appDelegate.spectrepro)
             configuration.loadReference(from: appDelegate.spectrepro)
+            configuration.loadThemes()
         }
         .frame(minWidth: 680, idealWidth: 760, minHeight: 500, idealHeight: 580)
     }
@@ -76,16 +77,19 @@ private struct AppearanceSettingsTab: View {
                     TextField("Theme name or path", text: $configuration.theme, prompt: Text("System default"))
                         .textFieldStyle(.roundedBorder)
 
-                    Menu("Included Themes") {
+                    Menu("Available Themes") {
                         Button("System Default") { configuration.theme = "" }
                         Divider()
-                        ForEach(Self.includedThemes, id: \.self) { theme in
+                        ForEach(configuration.availableThemes, id: \.self) { theme in
                             Button(theme) { configuration.theme = theme }
                         }
                     }
+                    .disabled(configuration.availableThemes.isEmpty)
                 }
 
-                Text("Choose an included theme or enter a custom theme name or file path. A theme overrides custom colors.")
+                Text(configuration.availableThemes.isEmpty
+                    ? "Loading bundled themes…"
+                    : "Choose a bundled theme or enter a custom theme name or file path. A theme overrides custom colors.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -145,15 +149,6 @@ private struct AppearanceSettingsTab: View {
         .padding()
     }
 
-    private static let includedThemes = [
-        "SpectrePro Default Style Dark",
-        "Catppuccin Mocha",
-        "Dracula",
-        "Gruvbox Dark",
-        "Gruvbox Light",
-        "Nord",
-        "TokyoNight",
-    ]
 }
 
 private struct TerminalSettingsTab: View {
@@ -341,6 +336,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
     @Published private(set) var didFail = false
     @Published private(set) var reference = [ConfigurationOption]()
     @Published private(set) var referenceStatus: ReferenceStatus = .idle
+    @Published private(set) var availableThemes = [String]()
     @Published private var optionValues = [String: String]()
 
     func load(from app: SpectrePro.App) {
@@ -370,6 +366,17 @@ private final class ConfigurationSettingsModel: ObservableObject {
         autoSecureInput = boolValue(for: "macos-auto-secure-input", at: app.configurationFileURL, default: true)
         secureInputIndication = boolValue(for: "macos-secure-input-indication", at: app.configurationFileURL, default: true)
         isLoaded = true
+    }
+
+    func loadThemes() {
+        guard availableThemes.isEmpty, let executableURL = Bundle.main.executableURL else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let themes = Self.loadThemes(executableURL: executableURL)
+            DispatchQueue.main.async {
+                self?.availableThemes = themes
+            }
+        }
     }
 
     func apply(to app: SpectrePro.App) {
@@ -615,6 +622,35 @@ private final class ConfigurationSettingsModel: ObservableObject {
         }
 
         return options.sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+    }
+
+    nonisolated private static func loadThemes(executableURL: URL) -> [String] {
+        let process = Process()
+        process.executableURL = executableURL
+        process.arguments = ["+list-themes"]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0,
+                  let text = String(data: data, encoding: .utf8) else { return [] }
+
+            return text
+                .split(separator: "\n")
+                .compactMap { line in
+                    let name = String(line)
+                    guard let separator = name.range(of: " (", options: .backwards),
+                          name.hasSuffix(")") else { return nil }
+                    return String(name[..<separator.lowerBound])
+                }
+                .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        } catch {
+            return []
+        }
     }
 
     private func replacing(_ key: String, with value: String, in contents: String) -> String {
