@@ -264,6 +264,23 @@ struct EnterpriseSessionsTests {
         #expect(ciscoConfig.charDelayMs == 2)
     }
 
+    @Test func testSerialConfigurationMapsToNativeBackend() {
+        var config = SerialConnectionConfig.default(for: "/dev/cu.usbserial-A101")
+        config.baudRate = 9600
+        config.dataBits = 7
+        config.parity = "Odd"
+        config.stopBits = 2
+        config.flowControl = "Hardware"
+
+        let surfaceConfiguration = SpectrePro.SurfaceConfiguration(serial: config)
+        #expect(surfaceConfiguration.serialDevice == "/dev/cu.usbserial-A101")
+        #expect(surfaceConfiguration.serialBaudRate == 9600)
+        #expect(surfaceConfiguration.serialDataBits == 7)
+        #expect(surfaceConfiguration.serialParity == 1)
+        #expect(surfaceConfiguration.serialStopBits == 2)
+        #expect(surfaceConfiguration.serialFlowControl == 1)
+    }
+
     // MARK: - 7. High-Throughput, Concurrency & Stress Benchmark Tests
 
     @Test func testKeywordHighlighterStressThroughput() {
