@@ -207,7 +207,10 @@ public struct SerialInspectorView: View {
                             VStack(spacing: 2) {
                                 ForEach(availablePorts) { dev in
                                     let isSel = selectedDevice?.bsdPath == dev.bsdPath
-                                    HStack(spacing: 6) {
+                                    Button {
+                                        selectDevice(dev)
+                                    } label: {
+                                        HStack(spacing: 6) {
                                         Image(systemName: dev.isUSB ? "cable.connector" : "cpu")
                                             .font(.system(size: 11))
                                             .foregroundStyle(isSel ? Color.accentColor : Color.secondary)
@@ -230,7 +233,9 @@ public struct SerialInspectorView: View {
                                                 .font(.system(size: 10, weight: .bold))
                                                 .foregroundStyle(Color.accentColor)
                                         }
+                                        }
                                     }
+                                    .buttonStyle(.plain)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 5)
                                     .background(
@@ -238,9 +243,9 @@ public struct SerialInspectorView: View {
                                             .fill(isSel ? Color.accentColor.opacity(0.12) : Color.clear)
                                     )
                                     .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        selectDevice(dev)
-                                    }
+                                    .accessibilityLabel("\(dev.name), \(dev.bsdPath)")
+                                    .accessibilityValue(isSel ? "Selected" : "Not selected")
+                                    .accessibilityHint("Select this serial device")
                                 }
                             }
                         }
