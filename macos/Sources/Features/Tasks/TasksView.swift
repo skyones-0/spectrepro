@@ -120,26 +120,6 @@ public struct TasksView: View {
                     Spacer()
                 }
             } else {
-                // List of tasks
-                ScrollView {
-                    LazyVStack(spacing: 6) {
-                        ForEach(filteredTasks) { task in
-                            TaskRowCard(
-                                task: task,
-                                isSelected: selectedTaskId == task.id,
-                                onSelect: {
-                                    if selectedTaskId == task.id {
-                                        selectedTaskId = nil
-                                    } else {
-                                        selectedTaskId = task.id
-                                    }
-                                },
-                                onStop: { taskManager.stop(id: task.id) },
-                                onDelete: {
-                                    taskPendingDeletion = task
-                                    showsDeleteConfirmation = true
-                                }
-                            )
                 if filteredTasks.isEmpty {
                     VStack(spacing: 10) {
                         Spacer()

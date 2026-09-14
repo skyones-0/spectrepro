@@ -39,6 +39,9 @@ public struct SerialConnectionConfig: Equatable {
 enum SerialInspectorSelection {
     static func requiresConfigurationReset(previousPath: String?, newPath: String) -> Bool {
         previousPath != newPath
+    }
+}
+
 public enum SerialPasteEngine {
     public static func paste(
         _ text: String,
@@ -66,6 +69,75 @@ public enum SerialPasteEngine {
                 try await sleep(lineDelay)
             }
         }
+    }
+}
+
+private struct SerialPortRow: View {
+    let device: SerialDevice
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 6) {
+                Image(systemName: device.isUSB ? "cable.connector" : "cpu")
+                    .font(.system(size: 11))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .frame(width: 14)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(device.name)
+                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                        .lineLimit(1)
+                    Text(device.bsdPath)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .accessibilityLabel(Text(device.name))
+        .accessibilityValue(Text(device.bsdPath))
+        .accessibilityHint("Select this serial device")
+    }
+}
+
+private struct SerialBreakButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 10))
+                Text("Send Break")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.orange.opacity(0.9))
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -245,46 +317,11 @@ public struct SerialInspectorView: View {
                         } else {
                             VStack(spacing: 2) {
                                 ForEach(availablePorts) { dev in
-                                    let isSel = selectedDevice?.bsdPath == dev.bsdPath
-                                    Button {
-                                        selectDevice(dev)
-                                    } label: {
-                                        HStack(spacing: 6) {
-                                        Image(systemName: dev.isUSB ? "cable.connector" : "cpu")
-                                            .font(.system(size: 11))
-                                            .foregroundStyle(isSel ? Color.accentColor : Color.secondary)
-                                            .frame(width: 14)
-
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(dev.name)
-                                                .font(.system(size: 11, weight: isSel ? .semibold : .regular))
-                                                .lineLimit(1)
-                                            Text(dev.bsdPath)
-                                                .font(.system(size: 9, design: .monospaced))
-                                                .foregroundStyle(.secondary)
-                                                .lineLimit(1)
-                                        }
-
-                                        Spacer()
-
-                                        if isSel {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundStyle(Color.accentColor)
-                                        }
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 5)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(isSel ? Color.accentColor.opacity(0.12) : Color.clear)
+                                    SerialPortRow(
+                                        device: dev,
+                                        isSelected: selectedDevice?.bsdPath == dev.bsdPath,
+                                        onSelect: { selectDevice(dev) }
                                     )
-                                    .contentShape(Rectangle())
-                                    .accessibilityLabel("\(dev.name), \(dev.bsdPath)")
-                                    .accessibilityValue(isSel ? "Selected" : "Not selected")
-                                    .accessibilityHint("Select this serial device")
                                 }
                             }
                         }
@@ -307,7 +344,7 @@ public struct SerialInspectorView: View {
                         }
 
                         // Serial Port Parameters
-                        VStack(alignment: .leading, spacing: 8) {
+                        AnyView(VStack(alignment: .leading, spacing: 8) {
                             Text("SERIAL PORT PARAMETERS")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(.secondary)
@@ -330,7 +367,7 @@ public struct SerialInspectorView: View {
                                 Spacer()
                                 Picker("", selection: $config.baudRate) {
                                     ForEach(SerialDeviceWatcher.standardBaudRates, id: \.self) { rate in
-                                        Text("\(rate)").tag(rate)
+                                        Text(rate.description).tag(rate)
                                     }
                                 }
                                 .labelsHidden()
@@ -395,7 +432,7 @@ public struct SerialInspectorView: View {
                         }
                         .padding(8)
                         .background(Color(nsColor: .controlBackgroundColor))
-                        .cornerRadius(6)
+                        .cornerRadius(6))
 
                         // Hardware Tools Section (SecureCRT Grade)
                         VStack(alignment: .leading, spacing: 8) {
@@ -413,24 +450,7 @@ public struct SerialInspectorView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Button {
-                                    triggerBreakSignal()
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "bolt.fill")
-                                            .font(.system(size: 10))
-                                        Text("Send Break")
-                                            .font(.system(size: 10, weight: .bold))
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 5)
-                                            .fill(Color.orange.opacity(0.9))
-                                    )
-                                }
-                                .buttonStyle(.plain)
+                                SerialBreakButton(action: triggerBreakSignal)
                             }
 
                             if let msg = breakFeedbackMessage {
@@ -515,24 +535,6 @@ public struct SerialInspectorView: View {
                             Text("Shell exit, Delete key, and VT100 keypad options apply only to terminal sessions.")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
-
-                            HStack {
-                                Text("When shell exits")
-                                    .font(.system(size: 11))
-                                Spacer()
-                                Picker("", selection: $config.closeOnExit) {
-                                    Text("Don't close terminal").tag(false)
-                                    Text("Close terminal").tag(true)
-                                }
-                                .labelsHidden()
-                                .frame(width: 140)
-                            }
-
-                            Toggle("Delete sends Control-H", isOn: $config.deleteSendsCtrlH)
-                                .font(.system(size: 11))
-
-                            Toggle("Allow VT100 application keypad mode", isOn: $config.vt100Keypad)
-                                .font(.system(size: 11))
                         }
                         .padding(8)
                         .background(Color(nsColor: .controlBackgroundColor))

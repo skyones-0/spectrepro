@@ -21,6 +21,8 @@ enum AppDiagnostics {
     static var verbosity: Verbosity {
         get { Verbosity(rawValue: UserDefaults.standard.string(forKey: "diagnostics.verbosity") ?? "normal") ?? .normal }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "diagnostics.verbosity") }
+    }
+
     static func revealLog() {
         let fileManager = FileManager.default
         let directoryURL = logFileURL.deletingLastPathComponent()
