@@ -18,6 +18,8 @@ final class ReleasePilotUITests: XCTestCase {
         XCTAssertTrue(app.buttons["flowAction-2"].exists)
         XCTAssertTrue(app.buttons["flowAction-3"].exists)
         XCTAssertTrue(app.buttons["publishRelease"].exists)
+        XCTAssertTrue(app.buttons["refreshWorkflows"].exists)
+        XCTAssertTrue(app.staticTexts["No workflows loaded"].exists)
         XCTAssertFalse(app.buttons["publishRelease"].isEnabled)
     }
 
