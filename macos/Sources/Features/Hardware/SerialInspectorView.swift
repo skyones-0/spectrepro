@@ -182,7 +182,6 @@ public struct SerialInspectorView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Rescan Serial Ports")
-                .focusable(false)
             }
             .padding(.horizontal, 12)
             .padding(.top, 12)
@@ -436,7 +435,6 @@ public struct SerialInspectorView: View {
                                     .buttonStyle(.bordered)
                                     .controlSize(.small)
                                     .disabled(isThrottledPasting)
-                                    .focusable(false)
 
                                     if let progress = pasteProgressMessage {
                                         Text(progress)
@@ -499,7 +497,6 @@ public struct SerialInspectorView: View {
                     .font(.system(size: 11))
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .focusable(false)
 
                     Spacer()
 
@@ -510,7 +507,6 @@ public struct SerialInspectorView: View {
                     .font(.system(size: 11))
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .focusable(false)
                 }
 
                 HStack(spacing: 8) {
@@ -522,7 +518,6 @@ public struct SerialInspectorView: View {
                         .font(.system(size: 11))
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .focusable(false)
                     }
 
                     Spacer()
@@ -546,7 +541,6 @@ public struct SerialInspectorView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .focusable(false)
                 }
             }
             .padding(12)
