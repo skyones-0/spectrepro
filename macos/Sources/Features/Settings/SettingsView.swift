@@ -89,9 +89,16 @@ private struct AppearanceSettingsTab: View {
 
                 Text(configuration.availableThemes.isEmpty
                     ? "Loading bundled themes…"
-                    : "Choose a bundled theme or enter a custom theme name or file path. A theme overrides custom colors.")
+                    : "Choose a bundled theme or enter a custom theme name or file path. Custom colors override a theme.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+
+                if configuration.hasThemeColorOverrides {
+                    Button("Use Theme Colors") {
+                        configuration.clearThemeColorOverrides()
+                    }
+                    .help("Clear background, foreground, and palette overrides when you apply changes.")
+                }
             }
 
             Section("Typography") {
@@ -181,7 +188,7 @@ private struct TerminalSettingsTab: View {
                 TextField("Scrollback Limit", text: $configuration.scrollbackLimit, prompt: Text("50MB"))
                     .textFieldStyle(.roundedBorder)
 
-                Text("Examples: 50MB, 1GB, or a number of bytes. A larger history uses more memory.")
+                Text("Examples: 50MB, 1GB, or a number of bytes. A larger history uses more memory and applies to new terminals.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -338,6 +345,9 @@ private final class ConfigurationSettingsModel: ObservableObject {
     @Published private(set) var referenceStatus: ReferenceStatus = .idle
     @Published private(set) var availableThemes = [String]()
     @Published private var optionValues = [String: String]()
+    @Published private(set) var hasThemeColorOverrides = false
+    private var loadedValues = [String: String]()
+    private var clearsThemePalette = false
 
     func load(from app: SpectrePro.App) {
         let config = app.config
@@ -365,6 +375,9 @@ private final class ConfigurationSettingsModel: ObservableObject {
         optionAsAlt = readValue(for: "macos-option-as-alt", at: app.configurationFileURL) ?? ""
         autoSecureInput = boolValue(for: "macos-auto-secure-input", at: app.configurationFileURL, default: true)
         secureInputIndication = boolValue(for: "macos-secure-input-indication", at: app.configurationFileURL, default: true)
+        hasThemeColorOverrides = Self.hasThemeColorOverrides(at: app.configurationFileURL)
+        clearsThemePalette = false
+        loadedValues = currentValues
         isLoaded = true
     }
 
@@ -389,35 +402,31 @@ private final class ConfigurationSettingsModel: ObservableObject {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let restartNeeded = requiresRestart(at: url)
             var contents = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            contents = replacing("theme", with: theme.trimmingCharacters(in: .whitespacesAndNewlines), in: contents)
-            contents = replacing("font-family", with: fontFamily.trimmingCharacters(in: .whitespacesAndNewlines), in: contents)
-            contents = replacing("font-size", with: String(format: "%.1f", fontSize), in: contents)
-            contents = replacing("cursor-style", with: cursorStyle, in: contents)
-            contents = replacing("background", with: backgroundColor.trimmingCharacters(in: .whitespacesAndNewlines), in: contents)
-            contents = replacing("foreground", with: foregroundColor.trimmingCharacters(in: .whitespacesAndNewlines), in: contents)
-            contents = replacing("background-opacity", with: String(format: "%.2f", backgroundOpacity), in: contents)
-            contents = replacing("background-blur", with: backgroundBlur, in: contents)
-            contents = replacing("window-save-state", with: windowSaveState, in: contents)
-            contents = replacing("fullscreen", with: fullscreenMode, in: contents)
-            contents = replacing("macos-non-native-fullscreen", with: fullscreenShortcutMode, in: contents)
-            contents = replacing("macos-titlebar-style", with: titlebarStyle, in: contents)
-            contents = replacing("macos-topbar", with: showTopbar ? "true" : "false", in: contents)
-            contents = replacing("quit-after-last-window-closed", with: quitAfterLastWindowCloses ? "true" : "false", in: contents)
-            contents = replacing("working-directory", with: workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines), in: contents)
-            contents = replacing("shell-integration", with: shellIntegration, in: contents)
-            contents = replacing("copy-on-select", with: copyOnSelect, in: contents)
-            contents = replacing("mouse-hide-while-typing", with: mouseHideWhileTyping ? "true" : "false", in: contents)
-            contents = replacing("scrollback-limit-bytes", with: scrollbackLimit.trimmingCharacters(in: .whitespacesAndNewlines), in: contents)
-            contents = replacing("scrollback-limit", with: "", in: contents)
-            contents = replacing("auto-update", with: autoUpdate, in: contents)
-            contents = replacing("auto-update-channel", with: updateChannel, in: contents)
-            contents = replacing("macos-option-as-alt", with: optionAsAlt, in: contents)
-            contents = replacing("macos-auto-secure-input", with: autoSecureInput ? "true" : "false", in: contents)
-            contents = replacing("macos-secure-input-indication", with: secureInputIndication ? "true" : "false", in: contents)
+            let values = currentValues
+            let changedKeys = values.keys.filter { values[$0] != loadedValues[$0] }
+
+            guard !changedKeys.isEmpty || clearsThemePalette else {
+                didFail = false
+                statusMessage = "No changes to apply."
+                return
+            }
+
+            for key in changedKeys {
+                contents = replacing(key, with: values[key] ?? "", in: contents)
+            }
+            if changedKeys.contains("scrollback-limit-bytes") {
+                contents = replacing("scrollback-limit", with: "", in: contents)
+            }
+            if clearsThemePalette {
+                contents = replacingAll("palette", with: "", in: contents)
+            }
             try contents.write(to: url, atomically: true, encoding: .utf8)
             app.reloadConfig()
             didFail = false
             statusMessage = "Applied to \(url.path)."
+            loadedValues = values
+            clearsThemePalette = false
+            hasThemeColorOverrides = Self.hasThemeColorOverrides(at: url)
             if restartNeeded {
                 presentRestartPrompt()
             }
@@ -442,6 +451,41 @@ private final class ConfigurationSettingsModel: ObservableObject {
     private func requiresRestart(at url: URL) -> Bool {
         backgroundOpacity != doubleValue(for: "background-opacity", at: url, default: 1) ||
             updateChannel != (readValue(for: "auto-update-channel", at: url) ?? "stable")
+    }
+
+    func clearThemeColorOverrides() {
+        backgroundColor = ""
+        foregroundColor = ""
+        clearsThemePalette = true
+    }
+
+    private var currentValues: [String: String] {
+        [
+            "theme": theme.trimmingCharacters(in: .whitespacesAndNewlines),
+            "font-family": fontFamily.trimmingCharacters(in: .whitespacesAndNewlines),
+            "font-size": String(format: "%.1f", fontSize),
+            "cursor-style": cursorStyle,
+            "background": backgroundColor.trimmingCharacters(in: .whitespacesAndNewlines),
+            "foreground": foregroundColor.trimmingCharacters(in: .whitespacesAndNewlines),
+            "background-opacity": String(format: "%.2f", backgroundOpacity),
+            "background-blur": backgroundBlur,
+            "window-save-state": windowSaveState,
+            "fullscreen": fullscreenMode,
+            "macos-non-native-fullscreen": fullscreenShortcutMode,
+            "macos-titlebar-style": titlebarStyle,
+            "macos-topbar": showTopbar ? "true" : "false",
+            "quit-after-last-window-closed": quitAfterLastWindowCloses ? "true" : "false",
+            "working-directory": workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines),
+            "shell-integration": shellIntegration,
+            "copy-on-select": copyOnSelect,
+            "mouse-hide-while-typing": mouseHideWhileTyping ? "true" : "false",
+            "scrollback-limit-bytes": scrollbackLimit.trimmingCharacters(in: .whitespacesAndNewlines),
+            "auto-update": autoUpdate,
+            "auto-update-channel": updateChannel,
+            "macos-option-as-alt": optionAsAlt,
+            "macos-auto-secure-input": autoSecureInput ? "true" : "false",
+            "macos-secure-input-indication": secureInputIndication ? "true" : "false",
+        ]
     }
 
     private func presentRestartPrompt() {
@@ -581,6 +625,13 @@ private final class ConfigurationSettingsModel: ObservableObject {
         return values.mapValues { $0.joined(separator: "\n") }
     }
 
+    nonisolated private static func hasThemeColorOverrides(at url: URL?) -> Bool {
+        let values = readValues(at: url)
+        return ["background", "foreground", "palette"].contains { key in
+            !(values[key] ?? "").isEmpty
+        }
+    }
+
     nonisolated private static func loadReference(executableURL: URL) throws -> [ConfigurationOption] {
         let process = Process()
         process.executableURL = executableURL
@@ -619,6 +670,13 @@ private final class ConfigurationSettingsModel: ObservableObject {
                 options.append(.init(key: key, documentation: documentation.joined(separator: " ")))
             }
             documentation.removeAll()
+        }
+
+        if !options.contains(where: { $0.key == "quick-terminal-size" }) {
+            options.append(.init(
+                key: "quick-terminal-size",
+                documentation: "Size of the quick terminal as width,height. This option has no default value."
+            ))
         }
 
         return options.sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
