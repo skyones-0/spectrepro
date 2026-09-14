@@ -16,6 +16,7 @@ const input = @import("../input.zig");
 const internal_os = @import("../os/main.zig");
 const renderer = @import("../renderer.zig");
 const terminal = @import("../terminal/main.zig");
+const termio = @import("../termio.zig");
 const CoreApp = @import("../App.zig");
 const CoreInspector = @import("../inspector/main.zig").Inspector;
 const CoreSurface = @import("../Surface.zig");
@@ -499,6 +500,15 @@ pub const Surface = struct {
 
         /// Context for the new surface
         context: apprt.surface.NewSurfaceContext = .window,
+
+        /// Optional native serial callout device. When non-null this surface
+        /// uses the serial backend instead of creating a subprocess/PTY.
+        serial_device: ?[*:0]const u8 = null,
+        serial_baud_rate: u32 = 115200,
+        serial_data_bits: u8 = 8,
+        serial_parity: u8 = 0,
+        serial_stop_bits: u8 = 1,
+        serial_flow_control: u8 = 0,
     };
 
     pub fn init(self: *Surface, app: *App, opts: Options) !void {
@@ -614,12 +624,21 @@ pub const Surface = struct {
 
         // Initialize our surface right away. We're given a view that is
         // ready to use.
+        const serial_config: ?termio.Serial.Config = if (opts.serial_device) |path| .{
+            .path = std.mem.sliceTo(path, 0),
+            .baud_rate = opts.serial_baud_rate,
+            .data_bits = opts.serial_data_bits,
+            .parity = opts.serial_parity,
+            .stop_bits = opts.serial_stop_bits,
+            .flow_control = opts.serial_flow_control,
+        } else null;
         try self.core_surface.init(
             app.core_app.alloc,
             &config,
             app.core_app,
             app,
             self,
+            serial_config,
         );
         errdefer self.core_surface.deinit();
 
@@ -2073,6 +2092,10 @@ pub const CAPI = struct {
         len: usize,
     ) void {
         surface.textCallback(ptr[0..len]);
+    }
+
+    export fn spectrepro_surface_serial_break(surface: *Surface, duration_ms: u32) void {
+        surface.core_surface.serialBreak(duration_ms);
     }
 
     /// Set the preedit text for the surface. This is used for IME

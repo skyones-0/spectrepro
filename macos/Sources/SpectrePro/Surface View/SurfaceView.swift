@@ -779,7 +779,25 @@ extension SpectrePro {
         /// Context for surface creation
         var context: spectrepro_surface_context_e = SPECTREPRO_SURFACE_CONTEXT_WINDOW
 
+        /// Native serial backend options. A nil device keeps the normal PTY backend.
+        var serialDevice: String?
+        var serialBaudRate: UInt32 = 115200
+        var serialDataBits: UInt8 = 8
+        var serialParity: UInt8 = 0
+        var serialStopBits: UInt8 = 1
+        var serialFlowControl: UInt8 = 0
+
         init() {}
+
+        init(serial config: SerialConnectionConfig) {
+            self.init()
+            self.serialDevice = config.devicePath
+            self.serialBaudRate = UInt32(config.baudRate)
+            self.serialDataBits = UInt8(config.dataBits)
+            self.serialParity = config.parity == "Odd" ? 1 : (config.parity == "Even" ? 2 : 0)
+            self.serialStopBits = UInt8(config.stopBits == 2 ? 2 : 1)
+            self.serialFlowControl = config.flowControl == "RTS/CTS" ? 1 : (config.flowControl == "XON/XOFF" ? 2 : 0)
+        }
 
         init(from config: spectrepro_surface_config_s) {
             self.fontSize = config.font_size
@@ -801,6 +819,14 @@ extension SpectrePro {
                 }
             }
             self.context = config.context
+            if let serialDevice = config.serial_device {
+                self.serialDevice = String(cString: serialDevice)
+            }
+            self.serialBaudRate = config.serial_baud_rate
+            self.serialDataBits = config.serial_data_bits
+            self.serialParity = config.serial_parity
+            self.serialStopBits = config.serial_stop_bits
+            self.serialFlowControl = config.serial_flow_control
         }
 
         /// Provides a C-compatible spectrepro configuration within a closure. The configuration
@@ -822,6 +848,11 @@ extension SpectrePro {
 
             // Set context
             config.context = context
+            config.serial_baud_rate = serialBaudRate
+            config.serial_data_bits = serialDataBits
+            config.serial_parity = serialParity
+            config.serial_stop_bits = serialStopBits
+            config.serial_flow_control = serialFlowControl
 
             // Use withCString to ensure strings remain valid for the duration of the closure
             return try workingDirectory.withCString { cWorkingDir in
@@ -829,6 +860,9 @@ extension SpectrePro {
 
                 return try command.withCString { cCommand in
                     config.command = cCommand
+
+                    return try serialDevice.withCString { cSerialDevice in
+                        config.serial_device = cSerialDevice
 
                     return try initialInput.withCString { cInput in
                         config.initial_input = cInput
@@ -857,6 +891,7 @@ extension SpectrePro {
                                 }
                             }
                         }
+                    }
                     }
                 }
             }
@@ -1367,4 +1402,3 @@ extension FocusedValues {
 extension Notification.Name {
     static let spectreproCopiedOutput = Notification.Name("SpectreProCopiedOutputNotification")
 }
-

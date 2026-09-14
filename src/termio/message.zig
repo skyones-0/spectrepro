@@ -82,6 +82,10 @@ pub const Message = union(enum) {
     /// The surface gained or lost focus.
     focused: bool,
 
+    /// Assert the serial BREAK condition for the requested duration. This is
+    /// ignored by non-serial backends.
+    serial_break: u32,
+
     /// Record a Kitty clipboard protocol session grant for a password
     /// so future requests carrying it skip the permission prompt, for
     /// reads and writes respectively.

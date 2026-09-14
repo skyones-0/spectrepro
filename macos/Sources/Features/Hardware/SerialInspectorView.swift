@@ -46,8 +46,8 @@ public struct SerialInspectorView: View {
     @ObservedObject var serialWatcher = SerialDeviceWatcher.shared
     @ObservedObject var state = QuickCommandsState.shared
     let surface: SpectrePro.SurfaceView?
-    let onConnect: (String, Bool) -> Void // (command, openInNewTab)
-    var onSplitAndConnect: ((String) -> Void)? = nil
+    let onConnect: (SerialConnectionConfig, Bool) -> Void // (config, openInNewTab)
+    var onSplitAndConnect: ((SerialConnectionConfig) -> Void)? = nil
 
     @State private var availablePorts: [SerialDevice] = []
     @State private var selectedDevice: SerialDevice? = nil
@@ -60,8 +60,8 @@ public struct SerialInspectorView: View {
 
     init(
         surface: SpectrePro.SurfaceView?,
-        onConnect: @escaping (String, Bool) -> Void,
-        onSplitAndConnect: ((String) -> Void)? = nil
+        onConnect: @escaping (SerialConnectionConfig, Bool) -> Void,
+        onSplitAndConnect: ((SerialConnectionConfig) -> Void)? = nil
     ) {
         self.surface = surface
         self.onConnect = onConnect
@@ -98,15 +98,9 @@ public struct SerialInspectorView: View {
     private func triggerBreakSignal() {
         let devPath = config.devicePath
 
-        // 1. Send POSIX tcsendbreak to device if accessible
-        let fd = open(devPath, O_RDWR | O_NOCTTY | O_NONBLOCK)
-        if fd >= 0 {
-            tcsendbreak(fd, 0) // duration 0 sends break of 250ms-500ms
-            close(fd)
-        }
-
-        // 2. In GNU screen sessions, send screen break sequence Ctrl-A + b (\u{01}b)
-        surface?.surfaceModel?.sendText("\u{01}b")
+        // The active surface owns the descriptor. Do not open a second fd:
+        // that could assert BREAK on a different session than the one shown.
+        surface?.surfaceModel?.sendSerialBreak(durationMilliseconds: 250)
 
         breakFeedbackMessage = "⚡ Break sent (250ms UART Break condition)"
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
@@ -500,8 +494,7 @@ public struct SerialInspectorView: View {
 
                     // Connect in Current Tab
                     Button("Connect Here") {
-                        let cmd = config.buildLaunchCommand()
-                        onConnect(cmd, false)
+                        onConnect(config, false)
                     }
                     .font(.system(size: 11))
                     .buttonStyle(.bordered)
@@ -513,8 +506,7 @@ public struct SerialInspectorView: View {
                     // Open in Split
                     if let onSplitAndConnect = onSplitAndConnect {
                         Button("Open in Split") {
-                            let cmd = config.buildLaunchCommand()
-                            onSplitAndConnect(cmd)
+                            onSplitAndConnect(config)
                         }
                         .font(.system(size: 11))
                         .buttonStyle(.bordered)
@@ -526,8 +518,7 @@ public struct SerialInspectorView: View {
 
                     // Open in New Tab
                     Button {
-                        let cmd = config.buildLaunchCommand()
-                        onConnect(cmd, true)
+                        onConnect(config, true)
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "plus.rectangle")

@@ -111,11 +111,11 @@ public struct SidebarHubView: View {
                 case .serial:
                     SerialInspectorView(
                         surface: surface,
-                        onConnect: { command, openInNewTab in
-                            handleConnectCommand(command, inNewTab: openInNewTab)
+                        onConnect: { config, openInNewTab in
+                            handleSerialConnect(config, inNewTab: openInNewTab)
                         },
-                        onSplitAndConnect: { command in
-                            handleSplitCommand(command)
+                        onSplitAndConnect: { config in
+                            handleSerialSplit(config)
                         }
                     )
                 case .sessions:
@@ -162,5 +162,29 @@ public struct SidebarHubView: View {
             let qc = QuickCommand(title: "Connect", command: commandText)
             send(qc, commandText, true, false)
         }
+    }
+
+    private func handleSerialConnect(_ config: SerialConnectionConfig, inNewTab: Bool) {
+        _ = inNewTab
+        guard let surface else { return }
+        let serial = SpectrePro.SurfaceConfiguration(serial: config)
+        NotificationCenter.default.post(
+            name: Notification.spectreproNewTab,
+            object: surface,
+            userInfo: [Notification.NewSurfaceConfigKey: serial]
+        )
+    }
+
+    private func handleSerialSplit(_ config: SerialConnectionConfig) {
+        guard let surface else { return }
+        let serial = SpectrePro.SurfaceConfiguration(serial: config)
+        NotificationCenter.default.post(
+            name: Notification.spectreproNewSplit,
+            object: surface,
+            userInfo: [
+                "direction": SPECTREPRO_SPLIT_DIRECTION_RIGHT,
+                Notification.NewSurfaceConfigKey: serial,
+            ]
+        )
     }
 }

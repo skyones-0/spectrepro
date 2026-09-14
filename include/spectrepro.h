@@ -518,6 +518,12 @@ typedef struct {
   const char* initial_input;
   bool wait_after_command;
   spectrepro_surface_context_e context;
+  const char* serial_device;
+  uint32_t serial_baud_rate;
+  uint8_t serial_data_bits;
+  uint8_t serial_parity;
+  uint8_t serial_stop_bits;
+  uint8_t serial_flow_control;
 } spectrepro_surface_config_s;
 
 typedef struct {
@@ -1207,6 +1213,7 @@ SPECTREPRO_API bool spectrepro_surface_key_is_binding(spectrepro_surface_t,
                                                    spectrepro_input_key_s,
                                                    spectrepro_binding_flags_e*);
 SPECTREPRO_API void spectrepro_surface_text(spectrepro_surface_t, const char*, uintptr_t);
+SPECTREPRO_API void spectrepro_surface_serial_break(spectrepro_surface_t, uint32_t);
 SPECTREPRO_API void spectrepro_surface_preedit(spectrepro_surface_t, const char*, uintptr_t);
 SPECTREPRO_API bool spectrepro_surface_mouse_captured(spectrepro_surface_t);
 SPECTREPRO_API bool spectrepro_surface_mouse_button(spectrepro_surface_t,

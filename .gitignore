@@ -34,3 +34,6 @@ vgcore.*
 
 /sprite_face_test*
 dist/release/
+
+# Private local release automation tool.
+/tools/ReleasePilot/
