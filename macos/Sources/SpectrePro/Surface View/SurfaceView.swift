@@ -32,16 +32,29 @@ extension SpectrePro {
         @ObservedObject private var taskManager = BackgroundTaskManager.shared
 
         // Session logger observer
-        @ObservedObject private var sessionLogger = SessionLogger.shared
+        @ObservedObject private var sessionLogger: SessionLogger
 
         // Expect / Send automation engine
-        @ObservedObject private var expectSend = ExpectSendEngine.shared
+        @ObservedObject private var expectSend: ExpectSendEngine
 
         // Ephemeral HUD toast for copied command output
         @State private var copiedHudMessage: String?
+        @State private var isSFTPBrowserPresented = false
 
         @EnvironmentObject private var spectrepro: SpectrePro.App
         @Environment(\.spectreproLastFocusedSurface) private var lastFocusedSurface
+
+        init(surfaceView: SurfaceView, isSplit: Bool = false) {
+            self.surfaceView = surfaceView
+            self.isSplit = isSplit
+            let runtime = SessionRuntimeRegistry.shared.runtime(for: surfaceView.id)
+            _sessionLogger = ObservedObject(wrappedValue: runtime.logger)
+            _expectSend = ObservedObject(wrappedValue: runtime.automation)
+        }
+
+        private var sessionRuntime: RemoteSessionRuntime {
+            SessionRuntimeRegistry.shared.runtime(for: surfaceView.id)
+        }
 
         private var isFocusedSurface: Bool {
             if surfaceView.focused { return true }
@@ -215,7 +228,11 @@ extension SpectrePro {
                     }
                 }
             }
-            .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
+            .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+                if sessionLogger.isRecording {
+                    let screenText = surfaceView.readScreenText()
+                    sessionLogger.ingestScreenText(screenText)
+                }
                 guard isFocusedSurface && windowFocus else { return }
                 let text = surfaceView.readVisibleText()
                 if KeywordHighlighter.shared.isEnabled {
@@ -226,8 +243,8 @@ extension SpectrePro {
                 if let range = downloadMarker {
                     let after = text[range.upperBound...]
                     let candidate = after.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                    if !candidate.isEmpty && SSHTransferManager.shared.activeTransfer == nil {
-                        SSHTransferManager.shared.downloadFile(remotePath: candidate, surface: surfaceView)
+                    if !candidate.isEmpty && sessionRuntime.transfers.activeTransfer == nil {
+                        sessionRuntime.transfers.downloadFile(remotePath: candidate, surface: surfaceView)
                     }
                 }
             }
@@ -269,11 +286,11 @@ extension SpectrePro {
                 }
 
                 if isFocusedSurface && windowFocus && sessionLogger.isRecording {
-                    SessionRecordingIndicator()
+                    SessionRecordingIndicator(logger: sessionLogger)
                 }
 
                 if isFocusedSurface && windowFocus {
-                    SSHTransferOverlay()
+                    SSHTransferOverlay(manager: sessionRuntime.transfers)
                 }
 
                 if isFocusedSurface && windowFocus, let status = expectSend.currentStatus {
@@ -297,6 +314,19 @@ extension SpectrePro {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(.top, 10)
             .padding(.trailing, 10)
+            .onReceive(NotificationCenter.default.publisher(for: .spectreproOpenSFTPBrowser)) { notification in
+                guard let targetUUID = notification.userInfo?["surfaceUUID"] as? UUID,
+                      targetUUID == surfaceView.id else { return }
+                isSFTPBrowserPresented = true
+            }
+            .sheet(isPresented: $isSFTPBrowserPresented) {
+                if let context = sessionRuntime.transfers.context(for: surfaceView.id) {
+                    SFTPBrowserView(context: context)
+                } else {
+                    Text("No active SSH session")
+                        .padding(40)
+                }
+            }
         }
 
         @ViewBuilder
@@ -360,13 +390,172 @@ extension SpectrePro {
                             removal: .move(edge: .top).combined(with: .opacity)
                         ))
                 }
+
+                if let hostAlert = sessionRuntime.transfers.lastHostKeyAlert, isFocusedSurface {
+                    HostKeyAlertToast(alert: hostAlert) {
+                        sessionRuntime.transfers.clearError()
+                    }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
+                }
+
+                if let session = sessionRuntime.session,
+                   session.sessionType.lowercased() == "ssh",
+                   surfaceView.childExitedMessage != nil,
+                   isFocusedSurface {
+                    SSHReconnectOverlay(
+                        state: sessionRuntime.reconnect.state,
+                        onReconnect: { reconnect(session: session) },
+                        onPause: { sessionRuntime.reconnect.pause() },
+                        onResume: {
+                            if let delay = sessionRuntime.reconnect.resume() {
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .seconds(delay))
+                                    guard case .waiting = sessionRuntime.reconnect.state else { return }
+                                    guard let command = try? session.buildProcessSpec().shellCommand else { return }
+                                    var config = SpectrePro.SurfaceConfiguration()
+                                    config.command = command
+                                    NotificationCenter.default.post(
+                                        name: SpectrePro.Notification.spectreproReplaceSurface,
+                                        object: surfaceView,
+                                        userInfo: [SpectrePro.Notification.NewSurfaceConfigKey: config]
+                                    )
+                                }
+                            }
+                        },
+                        onCancel: { sessionRuntime.reconnect.cancel() }
+                    )
+                }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: serialWatcher.activeAlert)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: processMonitor.activePortAlert)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: processMonitor.activeCommandAlert)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: copiedHudMessage)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: sessionRuntime.transfers.lastHostKeyAlert != nil)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.top, 12)
+        }
+
+        private func reconnect(session: SavedSession) {
+            let reason = surfaceView.childExitedMessage?.text ?? "SSH process exited"
+            guard let delay = sessionRuntime.reconnect.disconnected(reason: reason) else { return }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(delay))
+                guard case .waiting = sessionRuntime.reconnect.state else { return }
+                guard let command = try? session.buildProcessSpec().shellCommand else { return }
+                var config = SpectrePro.SurfaceConfiguration()
+                config.command = command
+                NotificationCenter.default.post(
+                    name: SpectrePro.Notification.spectreproReplaceSurface,
+                    object: surfaceView,
+                    userInfo: [SpectrePro.Notification.NewSurfaceConfigKey: config]
+                )
+            }
+        }
+    }
+
+    private struct HostKeyAlertToast: View {
+        let alert: HostKeyAlert
+        let onDismiss: () -> Void
+
+        var body: some View {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .foregroundStyle(.red)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(alert.host)
+                        .font(.system(size: 11, weight: .bold))
+                    Text(alert.message)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    if let offending = alert.offendingLine {
+                        Text(offending)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.red.opacity(0.8))
+                    }
+                }
+                Button("Dismiss", action: onDismiss)
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .windowBackgroundColor).opacity(0.95)))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.5), lineWidth: 1))
+            .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+        }
+    }
+
+    private struct SSHReconnectOverlay: View {
+        let state: SSHReconnectState
+        let onReconnect: () -> Void
+        let onPause: () -> Void
+        let onResume: () -> Void
+        let onCancel: () -> Void
+
+        var body: some View {
+            HStack(spacing: 8) {
+                Image(systemName: isOffline ? "wifi.slash" : "network.slash")
+                    .foregroundStyle(isOffline ? .red : .orange)
+                Text(message)
+                    .font(.system(size: 11, weight: .medium))
+
+                if case .waiting = state {
+                    Button("Pause", action: onPause)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    Button("Cancel", action: onCancel)
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                } else if case .paused = state {
+                    Button("Resume", action: onResume)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    Button("Cancel", action: onCancel)
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Button("Reconnect", action: onReconnect)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(isWaiting || isOffline)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(Color(nsColor: .windowBackgroundColor).opacity(0.95)))
+            .overlay(Capsule().stroke(isOffline ? Color.red.opacity(0.45) : Color.orange.opacity(0.45), lineWidth: 1))
+        }
+
+        private var isOffline: Bool {
+            if case .networkUnavailable = state { return true }
+            return false
+        }
+
+        private var isWaiting: Bool {
+            if case .waiting = state { return true }
+            return false
+        }
+
+        private var message: String {
+            switch state {
+            case .waiting(let attempt, let delay):
+                return "Connection lost. Retry \(attempt) in \(Int(delay))s"
+            case .paused(let attempt):
+                return "Reconnection paused (attempt \(attempt))"
+            case .cancelled:
+                return "Reconnection cancelled"
+            case .networkUnavailable:
+                return "Network offline. Waiting for connection..."
+            case .exhausted:
+                return "Reconnect attempts exhausted"
+            default:
+                return "Connection lost"
+            }
         }
     }
 
@@ -1428,4 +1617,5 @@ extension FocusedValues {
 
 extension Notification.Name {
     static let spectreproCopiedOutput = Notification.Name("SpectreProCopiedOutputNotification")
+    static let spectreproOpenSFTPBrowser = Notification.Name("co.skyones.spectrepro.openSFTPBrowser")
 }
