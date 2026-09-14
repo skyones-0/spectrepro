@@ -245,8 +245,13 @@ extension SpectrePro {
 
                 if surfaceView.serialDevice != nil && isFocusedSurface && windowFocus {
                     SerialExitOverlay {
-                        guard let controller = surfaceView.window?.windowController as? TerminalController else { return }
-                        controller.closeSurface(surfaceView, withConfirmation: false)
+                        NotificationCenter.default.post(
+                            name: SpectrePro.Notification.spectreproReplaceSurface,
+                            object: surfaceView,
+                            userInfo: [
+                                SpectrePro.Notification.NewSurfaceConfigKey: SpectrePro.SurfaceConfiguration()
+                            ]
+                        )
                     }
                 }
 
