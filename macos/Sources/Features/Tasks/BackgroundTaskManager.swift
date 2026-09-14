@@ -32,6 +32,7 @@ public struct BackgroundTaskItem: Identifiable {
     public let startedAt: Date
     public var finishedAt: Date?
     public var output: String
+    public var outputWasTruncated: Bool
     public var pid: Int32?
     public let workingDirectory: String?
 
@@ -81,6 +82,7 @@ public final class BackgroundTaskManager: ObservableObject {
             startedAt: Date(),
             finishedAt: nil,
             output: "$ \(command)\n",
+            outputWasTruncated: false,
             pid: nil,
             workingDirectory: workingDirectory
         )
@@ -172,13 +174,20 @@ public final class BackgroundTaskManager: ObservableObject {
         if current.count > maxOutputLength {
             let overflow = current.count - maxOutputLength
             current = String(current.dropFirst(overflow))
+            tasks[idx].outputWasTruncated = true
         }
         tasks[idx].output = current
     }
 
     private func handleTermination(for taskId: UUID, exitCode: Int32) {
         if let pipe = taskPipes[taskId] {
-            pipe.fileHandleForReading.readabilityHandler = nil
+            let fileHandle = pipe.fileHandleForReading
+            fileHandle.readabilityHandler = nil
+            let remainingData = fileHandle.readDataToEndOfFile()
+            if !remainingData.isEmpty,
+               let remainingText = String(data: remainingData, encoding: .utf8) ?? String(data: remainingData, encoding: .ascii) {
+                appendOutput(to: taskId, text: remainingText)
+            }
         }
         if let idx = tasks.firstIndex(where: { $0.id == taskId }) {
             if tasks[idx].status == .running {
