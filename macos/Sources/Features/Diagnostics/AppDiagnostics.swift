@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import AppKit
 
 enum AppDiagnostics {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "co.skyones.spectrepro"
@@ -9,6 +10,13 @@ enum AppDiagnostics {
     static var logFileURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/SpectrePro/SpectrePro.log")
+    }
+
+    static func revealLog() {
+        let fileManager = FileManager.default
+        let directoryURL = logFileURL.deletingLastPathComponent()
+        try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        NSWorkspace.shared.activateFileViewerSelecting([logFileURL])
     }
 
     static func event(_ message: String, category: String = "App") {
