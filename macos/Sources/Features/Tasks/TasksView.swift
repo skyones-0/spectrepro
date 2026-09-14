@@ -10,6 +10,8 @@ public struct TasksView: View {
     @State private var newCommandText = ""
     @State private var newCommandTitle = ""
     @State private var searchText = ""
+    @State private var taskPendingDeletion: BackgroundTaskItem?
+    @State private var showsDeleteConfirmation = false
 
     public init(onAttachToTerminal: ((String) -> Void)? = nil) {
         self.onAttachToTerminal = onAttachToTerminal
@@ -133,7 +135,10 @@ public struct TasksView: View {
                                     }
                                 },
                                 onStop: { taskManager.stop(id: task.id) },
-                                onDelete: { taskManager.remove(id: task.id) }
+                                onDelete: {
+                                    taskPendingDeletion = task
+                                    showsDeleteConfirmation = true
+                                }
                             )
                         }
                     }
@@ -150,6 +155,16 @@ public struct TasksView: View {
                     taskManager.run(command: cmd, title: title)
                 }
             )
+        }
+        .alert("Delete background task?", isPresented: $showsDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let task = taskPendingDeletion {
+                    taskManager.remove(id: task.id)
+                }
+            }
+        } message: {
+            Text("The output for \(taskPendingDeletion?.title ?? "this task") will be removed from the task history.")
         }
     }
 }
