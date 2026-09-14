@@ -243,6 +243,13 @@ extension SpectrePro {
                     SecureInputOverlay()
                 }
 
+                if surfaceView.serialDevice != nil && isFocusedSurface && windowFocus {
+                    SerialExitOverlay {
+                        guard let controller = surfaceView.window?.windowController as? TerminalController else { return }
+                        controller.closeSurface(surfaceView, withConfirmation: false)
+                    }
+                }
+
                 if isFocusedSurface && windowFocus && (!processMonitor.backgroundJobs.isEmpty || taskManager.activeCount > 0) {
                     BackgroundProcessOverlay(
                         jobs: processMonitor.backgroundJobs,

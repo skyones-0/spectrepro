@@ -80,3 +80,24 @@ struct SecureInputOverlay: View {
             }
     }
 }
+
+struct SerialExitOverlay: View {
+    let onExit: () -> Void
+
+    var body: some View {
+        Button(action: onExit) {
+            Image(systemName: "figure.walk.departure")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+                .foregroundColor(.black)
+                .frame(width: 35, height: 35)
+                .background(SpectreProOverlayBackground(cornerRadius: 12, isPermanent: true))
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .help("Disconnect serial session")
+        .accessibilityLabel("Disconnect serial session")
+        .accessibilityHint("Closes the current serial terminal and releases the device")
+    }
+}

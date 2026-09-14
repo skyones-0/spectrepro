@@ -180,6 +180,9 @@ extension SpectrePro {
         /// state so we're mixing this with direct surface access.
         private(set) var surfaceModel: SpectrePro.Surface?
 
+        /// The device path for native serial surfaces, or nil for PTY surfaces.
+        private(set) var serialDevice: String?
+
         /// Returns the underlying C value for the surface. See "note" on surfaceModel.
         override var surface: spectrepro_surface_t? {
             surfaceModel?.unsafeCValue
@@ -385,6 +388,7 @@ extension SpectrePro {
 
             // Setup our surface. This will also initialize all the terminal IO.
             let surface_cfg = baseConfig ?? SurfaceConfiguration()
+            self.serialDevice = surface_cfg.serialDevice
             let surface = surface_cfg.withCValue(view: self) { surface_cfg_c in
                 spectrepro_surface_new(app, &surface_cfg_c)
             }
