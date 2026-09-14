@@ -36,6 +36,10 @@ public struct SerialConnectionConfig: Equatable {
         )
     }
 
+    public func buildLaunchCommand() -> String {
+        "screen \(devicePath) \(baudRate)"
+    }
+
 }
 
 public struct SerialInspectorView: View {
