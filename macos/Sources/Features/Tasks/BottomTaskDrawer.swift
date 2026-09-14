@@ -4,6 +4,8 @@ import AppKit
 public struct BottomTaskDrawer: View {
     @ObservedObject var taskManager = BackgroundTaskManager.shared
     var onAttachToTerminal: ((String) -> Void)? = nil
+    @State private var taskPendingDeletion: BackgroundTaskItem?
+    @State private var showsDeleteConfirmation = false
 
     public init(onAttachToTerminal: ((String) -> Void)? = nil) {
         self.onAttachToTerminal = onAttachToTerminal
@@ -107,7 +109,8 @@ public struct BottomTaskDrawer: View {
                                 help: "Delete task",
                                 isDestructive: true
                             ) {
-                                taskManager.remove(id: task.id)
+                                taskPendingDeletion = task
+                                showsDeleteConfirmation = true
                             }
                         }
                         .padding(.horizontal, 12)
@@ -211,6 +214,16 @@ public struct BottomTaskDrawer: View {
             }
             .frame(maxWidth: .infinity)
             .transition(.move(edge: .bottom).combined(with: .opacity))
+            .alert("Delete background task?", isPresented: $showsDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    if let task = taskPendingDeletion {
+                        taskManager.remove(id: task.id)
+                    }
+                }
+            } message: {
+                Text("The output for \(taskPendingDeletion?.title ?? "this task") will be removed from the task history.")
+            }
         }
     }
 }
