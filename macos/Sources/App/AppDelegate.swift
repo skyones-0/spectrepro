@@ -1021,7 +1021,7 @@ class AppDelegate: NSObject,
         quickController.toggle()
     }
 
-    /// Toggles visibility of all Ghosty Terminal windows. When hidden, activates SpectrePro as the frontmost application
+    /// Toggles visibility of all Spectre Pro windows. When hidden, activates SpectrePro as the frontmost application
     @IBAction func toggleVisibility(_ sender: Any) {
         // If we have focus, then we hide all windows.
         if NSApp.isActive {

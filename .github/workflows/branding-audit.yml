@@ -1,0 +1,27 @@
+name: Branding Audit
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  user-facing-branding:
+    name: Check user-facing branding
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject stale product wording
+        run: |
+          if rg -n -i --glob '*.swift' --glob '*.zig' \
+            'Ghosty Terminal|Ghosty will act|Ghostty Terminal' \
+            macos/Sources src; then
+            echo "Found stale user-facing branding." >&2
+            exit 1
+          fi

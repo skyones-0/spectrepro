@@ -2624,7 +2624,7 @@ pub fn preeditCallback(self: *Surface, preedit_: ?[]const u8) !void {
 /// Note that this function does not check if the binding itself
 /// is performable, only if the key event would trigger a binding.
 /// If a performable binding is found and the event is not performable,
-/// then Ghosty will act as though the binding does not exist.
+/// then Spectre Pro will act as though the binding does not exist.
 pub fn keyEventIsBinding(
     self: *Surface,
     event_orig: input.KeyEvent,
