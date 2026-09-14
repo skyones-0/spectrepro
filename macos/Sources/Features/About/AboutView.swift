@@ -165,6 +165,9 @@ struct AboutView: View {
                         openURL(url)
                     }
                 }
+                Button("Application log") {
+                    AppDiagnostics.revealLog()
+                }
             }
 
             if let copyright {
