@@ -50,6 +50,12 @@ jobs:
           [[ -n "$SPARKLE_PUBLIC_KEY" ]]
           [[ -n "$SPECTREPRO_APP_SIGNING_IDENTITY" ]]
 
+          source_version="$(tr -d '[:space:]' < VERSION)"
+          [[ "$source_version" == "${release_tag#v}" ]] || {
+            echo "VERSION contains $source_version, but the release tag is $release_tag" >&2
+            exit 1
+          }
+
           {
             echo "RELEASE_TAG=${release_tag}"
             echo "SPECTREPRO_VERSION=${release_tag#v}"
@@ -78,7 +84,12 @@ jobs:
             -target SpectrePro \
             -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="$SPECTREPRO_VERSION" \
             build
+
+          built_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
+            macos/build/Release/SpectrePro.app/Contents/Info.plist)
+          test "$built_version" = "$SPECTREPRO_VERSION"
 
       - name: Set release metadata
         run: |
