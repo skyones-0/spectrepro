@@ -10,9 +10,6 @@ public struct SerialConnectionConfig: Equatable {
     public var parity: String
     public var stopBits: Double
     public var flowControl: String
-    public var closeOnExit: Bool
-    public var deleteSendsCtrlH: Bool
-    public var vt100Keypad: Bool
 
     // SecureCRT Hardware Tools: Line and Character delay
     public var lineDelayMs: Int
@@ -28,9 +25,6 @@ public struct SerialConnectionConfig: Equatable {
             parity: "None",
             stopBits: 1.0,
             flowControl: "None",
-            closeOnExit: false,
-            deleteSendsCtrlH: false,
-            vt100Keypad: true,
             lineDelayMs: 0,
             charDelayMs: 0
         )
@@ -512,10 +506,14 @@ public struct SerialInspectorView: View {
                         .background(Color(nsColor: .controlBackgroundColor))
                         .cornerRadius(6)
 
-                        // Terminal Settings
+                        // These options belong to shell/PTY sessions and are not
+                        // supported by the native serial backend.
                         VStack(alignment: .leading, spacing: 8) {
                             Text("TERMINAL OPTIONS")
                                 .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                            Text("Shell exit, Delete key, and VT100 keypad options apply only to terminal sessions.")
+                                .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
 
                             HStack {
