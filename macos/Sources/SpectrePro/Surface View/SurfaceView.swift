@@ -295,7 +295,14 @@ extension SpectrePro {
                         device: serial,
                         baudRate: $serialWatcher.selectedBaudRate,
                         onConnect: { dev, baud in
-                            surfaceView.surfaceModel?.sendText("screen \(dev.bsdPath) \(baud)\n")
+                            var config = SerialConnectionConfig.default(for: dev.bsdPath, name: dev.name)
+                            config.baudRate = baud
+                            let serial = SpectrePro.SurfaceConfiguration(serial: config)
+                            NotificationCenter.default.post(
+                                name: SpectrePro.Notification.spectreproReplaceSurface,
+                                object: surfaceView,
+                                userInfo: [SpectrePro.Notification.NewSurfaceConfigKey: serial]
+                            )
                             serialWatcher.dismissAlert()
                         },
                         onDismiss: {
@@ -794,9 +801,17 @@ extension SpectrePro {
             self.serialDevice = config.devicePath
             self.serialBaudRate = UInt32(config.baudRate)
             self.serialDataBits = UInt8(config.dataBits)
-            self.serialParity = config.parity == "Odd" ? 1 : (config.parity == "Even" ? 2 : 0)
+            self.serialParity = switch config.parity {
+            case "Odd": 1
+            case "Even": 2
+            default: 0
+            }
             self.serialStopBits = UInt8(config.stopBits == 2 ? 2 : 1)
-            self.serialFlowControl = config.flowControl == "RTS/CTS" ? 1 : (config.flowControl == "XON/XOFF" ? 2 : 0)
+            self.serialFlowControl = switch config.flowControl {
+            case "Hardware": 1
+            case "Software": 2
+            default: 0
+            }
         }
 
         init(from config: spectrepro_surface_config_s) {

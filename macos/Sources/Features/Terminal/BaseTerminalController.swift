@@ -206,6 +206,11 @@ class BaseTerminalController: NSWindowController,
             object: nil)
         center.addObserver(
             self,
+            selector: #selector(spectreproDidReplaceSurface(_:)),
+            name: SpectrePro.Notification.spectreproReplaceSurface,
+            object: nil)
+        center.addObserver(
+            self,
             selector: #selector(spectreproDidEqualizeSplits(_:)),
             name: SpectrePro.Notification.didEqualizeSplits,
             object: nil)
@@ -729,6 +734,25 @@ class BaseTerminalController: NSWindowController,
         }
 
         newSplit(at: oldView, direction: splitDirection, baseConfig: config)
+    }
+
+    @objc private func spectreproDidReplaceSurface(_ notification: Notification) {
+        guard let oldView = notification.object as? SpectrePro.SurfaceView,
+              let oldNode = surfaceTree.root?.node(view: oldView),
+              let config = notification.userInfo?[SpectrePro.Notification.NewSurfaceConfigKey] as? SpectrePro.SurfaceConfiguration,
+              let spectreproApp = spectrepro.app else { return }
+
+        let newView = SpectrePro.SurfaceView(spectreproApp, baseConfig: config)
+        do {
+            let newTree = try surfaceTree.replacing(node: oldNode, with: .leaf(view: newView))
+            replaceSurfaceTree(
+                newTree,
+                moveFocusTo: newView,
+                moveFocusFrom: oldView,
+                undoAction: "Replace Terminal Connection")
+        } catch {
+            SpectrePro.logger.warning("failed to replace terminal surface: \(error, privacy: .public)")
+        }
     }
 
     @objc private func spectreproDidEqualizeSplits(_ notification: Notification) {
