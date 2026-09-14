@@ -88,7 +88,7 @@ jobs:
             build
 
           built_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
-            macos/build/Release/SpectrePro.app/Contents/Info.plist)
+            build/Release/SpectrePro.app/Contents/Info.plist)
           test "$built_version" = "$SPECTREPRO_VERSION"
 
       - name: Set release metadata
