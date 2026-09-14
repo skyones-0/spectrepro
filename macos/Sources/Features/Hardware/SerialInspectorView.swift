@@ -295,7 +295,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Data Bits
@@ -311,7 +310,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Parity
@@ -326,7 +324,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Stop Bits
@@ -340,7 +337,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
 
                             // Flow Control
@@ -355,7 +351,6 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 110)
-                                .focusable(false)
                             }
                         }
                         .padding(8)
@@ -396,7 +391,6 @@ public struct SerialInspectorView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                .focusable(false)
                             }
 
                             if let msg = breakFeedbackMessage {
@@ -423,7 +417,6 @@ public struct SerialInspectorView: View {
                                     }
                                     .labelsHidden()
                                     .frame(width: 120)
-                                    .focusable(false)
                                 }
 
                                 HStack {
@@ -469,16 +462,13 @@ public struct SerialInspectorView: View {
                                 }
                                 .labelsHidden()
                                 .frame(width: 140)
-                                .focusable(false)
                             }
 
                             Toggle("Delete sends Control-H", isOn: $config.deleteSendsCtrlH)
                                 .font(.system(size: 11))
-                                .focusable(false)
 
                             Toggle("Allow VT100 application keypad mode", isOn: $config.vt100Keypad)
                                 .font(.system(size: 11))
-                                .focusable(false)
                         }
                         .padding(8)
                         .background(Color(nsColor: .controlBackgroundColor))
