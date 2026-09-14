@@ -3,6 +3,12 @@ import OSLog
 import AppKit
 
 enum AppDiagnostics {
+    enum Verbosity: String, CaseIterable {
+        case errorsOnly
+        case normal
+        case verbose
+    }
+
     private static let subsystem = Bundle.main.bundleIdentifier ?? "co.skyones.spectrepro"
     private static let queue = DispatchQueue(label: "co.skyones.spectrepro.diagnostics")
     private static let maximumLogBytes = 1_000_000
@@ -12,6 +18,9 @@ enum AppDiagnostics {
             .appendingPathComponent("Library/Logs/SpectrePro/SpectrePro.log")
     }
 
+    static var verbosity: Verbosity {
+        get { Verbosity(rawValue: UserDefaults.standard.string(forKey: "diagnostics.verbosity") ?? "normal") ?? .normal }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "diagnostics.verbosity") }
     static func revealLog() {
         let fileManager = FileManager.default
         let directoryURL = logFileURL.deletingLastPathComponent()
@@ -20,6 +29,7 @@ enum AppDiagnostics {
     }
 
     static func event(_ message: String, category: String = "App") {
+        guard verbosity != .errorsOnly else { return }
         Logger(subsystem: subsystem, category: category).info("\(message, privacy: .public)")
         append("INFO", message: message, category: category)
     }
