@@ -79,6 +79,12 @@ public struct BottomTaskDrawer: View {
                                 .font(.system(size: 11, design: .monospaced).monospacedDigit())
                                 .foregroundStyle(.secondary)
 
+                            if task.outputWasTruncated {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                                    .help("Older output is not shown because the in-memory log limit was reached.")
+                            }
+
                             Spacer()
 
                             if !task.status.isTerminal {
