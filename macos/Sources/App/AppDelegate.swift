@@ -391,8 +391,9 @@ class AppDelegate: NSObject,
                 undoManager.enableUndoRegistration()
             }
 
-            updateController.scheduleStartupCheck()
         }
+
+        updateController.scheduleStartupCheck()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
