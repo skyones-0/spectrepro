@@ -865,7 +865,7 @@ extension SpectrePro {
             config.platform = spectrepro_platform_u(macos: spectrepro_platform_macos_s(
                 nsview: Unmanaged.passUnretained(view).toOpaque()
             ))
-            config.scale_factor = NSScreen.main!.backingScaleFactor
+            config.scale_factor = Double((view.window?.screen ?? NSScreen.main)?.backingScaleFactor ?? 1.0)
 
             // Zero is our default value that means to inherit the font size.
             config.font_size = fontSize ?? 0
