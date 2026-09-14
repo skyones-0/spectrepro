@@ -66,9 +66,13 @@ class UpdateController {
         didScheduleStartupCheck = true
         AppDiagnostics.event("Scheduled background update check.", category: "Updates")
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5)) { [weak self] in
-            guard let self,
-                  self.viewModel.state == .idle,
-                  NSApp.isActive else { return }
+            guard let self else { return }
+            guard NSApp.isActive else {
+                self.didScheduleStartupCheck = false
+                AppDiagnostics.event("Deferred background update check because the app is inactive.", category: "Updates")
+                return
+            }
+            guard self.viewModel.state == .idle else { return }
             self.updater.checkForUpdatesInBackground()
             AppDiagnostics.event("Started background update check.", category: "Updates")
         }

@@ -10,6 +10,8 @@ public struct TasksView: View {
     @State private var newCommandText = ""
     @State private var newCommandTitle = ""
     @State private var searchText = ""
+    @State private var taskPendingDeletion: BackgroundTaskItem?
+    @State private var showsDeleteConfirmation = false
 
     public init(onAttachToTerminal: ((String) -> Void)? = nil) {
         self.onAttachToTerminal = onAttachToTerminal
@@ -133,8 +135,46 @@ public struct TasksView: View {
                                     }
                                 },
                                 onStop: { taskManager.stop(id: task.id) },
-                                onDelete: { taskManager.remove(id: task.id) }
+                                onDelete: {
+                                    taskPendingDeletion = task
+                                    showsDeleteConfirmation = true
+                                }
                             )
+                if filteredTasks.isEmpty {
+                    VStack(spacing: 10) {
+                        Spacer()
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.secondary.opacity(0.5))
+                        Text("No Matching Tasks")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Text("Try a different title or command.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary.opacity(0.7))
+                        Button("Clear Filter") { searchText = "" }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        Spacer()
+                    }
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 6) {
+                            ForEach(filteredTasks) { task in
+                                TaskRowCard(
+                                    task: task,
+                                    isSelected: selectedTaskId == task.id,
+                                    onSelect: {
+                                        if selectedTaskId == task.id {
+                                            selectedTaskId = nil
+                                        } else {
+                                            selectedTaskId = task.id
+                                        }
+                                    },
+                                    onStop: { taskManager.stop(id: task.id) },
+                                    onDelete: { taskManager.remove(id: task.id) }
+                                )
+                            }
                         }
                     }
                     .padding(.vertical, 2)
@@ -150,6 +190,16 @@ public struct TasksView: View {
                     taskManager.run(command: cmd, title: title)
                 }
             )
+        }
+        .alert("Delete background task?", isPresented: $showsDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let task = taskPendingDeletion {
+                    taskManager.remove(id: task.id)
+                }
+            }
+        } message: {
+            Text("The output for \(taskPendingDeletion?.title ?? "this task") will be removed from the task history.")
         }
     }
 }

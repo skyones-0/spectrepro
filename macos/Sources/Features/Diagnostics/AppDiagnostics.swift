@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import AppKit
 
 enum AppDiagnostics {
     enum Verbosity: String, CaseIterable {
@@ -20,6 +21,11 @@ enum AppDiagnostics {
     static var verbosity: Verbosity {
         get { Verbosity(rawValue: UserDefaults.standard.string(forKey: "diagnostics.verbosity") ?? "normal") ?? .normal }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "diagnostics.verbosity") }
+    static func revealLog() {
+        let fileManager = FileManager.default
+        let directoryURL = logFileURL.deletingLastPathComponent()
+        try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        NSWorkspace.shared.activateFileViewerSelecting([logFileURL])
     }
 
     static func event(_ message: String, category: String = "App") {
