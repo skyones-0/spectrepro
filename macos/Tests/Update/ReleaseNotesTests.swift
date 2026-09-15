@@ -28,7 +28,7 @@ struct ReleaseNotesTests {
 
         #expect(notes != nil)
         if case .compareTip(let url) = notes {
-            #expect(url.absoluteString == "https://github.com/spectrepro-org/spectrepro/compare/def5678...abc1234")
+            #expect(url.absoluteString == "https://github.com/skyones-0/spectrepro/compare/def5678...abc1234")
             #expect(notes?.label == "Changes Since This Tip Release")
         } else {
             Issue.record("Expected compareTip case")
@@ -44,7 +44,7 @@ struct ReleaseNotesTests {
 
         #expect(notes != nil)
         if case .commit(let url) = notes {
-            #expect(url.absoluteString == "https://github.com/spectrepro-org/spectrepro/commit/abc1234")
+            #expect(url.absoluteString == "https://github.com/skyones-0/spectrepro/commit/abc1234")
             #expect(notes?.label == "View GitHub Commit")
         } else {
             Issue.record("Expected commit case")
@@ -60,7 +60,7 @@ struct ReleaseNotesTests {
 
         #expect(notes != nil)
         if case .commit(let url) = notes {
-            #expect(url.absoluteString == "https://github.com/spectrepro-org/spectrepro/commit/abc1234")
+            #expect(url.absoluteString == "https://github.com/skyones-0/spectrepro/commit/abc1234")
         } else {
             Issue.record("Expected commit case")
         }
@@ -75,7 +75,7 @@ struct ReleaseNotesTests {
 
         #expect(notes != nil)
         if case .commit(let url) = notes {
-            #expect(url.absoluteString == "https://github.com/spectrepro-org/spectrepro/commit/1234567890abcdef1234567890abcdef12345678")
+            #expect(url.absoluteString == "https://github.com/skyones-0/spectrepro/commit/1234567890abcdef1234567890abcdef12345678")
         } else {
             Issue.record("Expected commit case")
         }
@@ -122,7 +122,7 @@ struct ReleaseNotesTests {
 
         #expect(notes != nil)
         if case .compareTip(let url) = notes {
-            #expect(url.absoluteString == "https://github.com/spectrepro-org/spectrepro/compare/def5678...abc1234")
+            #expect(url.absoluteString == "https://github.com/skyones-0/spectrepro/compare/def5678...abc1234")
         } else {
             Issue.record("Expected compareTip case")
         }

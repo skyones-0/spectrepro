@@ -27,13 +27,13 @@ public struct SFTPTransferProgress: Equatable, Sendable {
     public var detailText: String {
         var details = [ByteCountFormatter.string(fromByteCount: completedBytes, countStyle: .file)]
         if let totalBytes {
-            details.append("of (ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file))")
+            details.append("of \(ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file))")
         }
         if bytesPerSecond > 0 {
-            details.append("• (ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file))/s")
+            details.append("• \(ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file))/s")
         }
         if let estimatedTimeRemaining {
-            details.append("• (Self.formatDuration(estimatedTimeRemaining)) remaining")
+            details.append("• \(Self.formatDuration(estimatedTimeRemaining)) remaining")
         }
         return details.joined(separator: " ")
     }
@@ -150,7 +150,7 @@ public final class SFTPClient: ObservableObject {
             fileName: localURL.lastPathComponent,
             isUpload: true,
             totalBytes: totalBytes,
-            status: "Uploading (localURL.lastPathComponent)…"
+            status: "Uploading \(localURL.lastPathComponent)…"
         )
     }
 
@@ -164,7 +164,7 @@ public final class SFTPClient: ObservableObject {
             fileName: localURL.lastPathComponent,
             isUpload: false,
             totalBytes: nil,
-            status: "Downloading (localURL.lastPathComponent)…"
+            status: "Downloading \(localURL.lastPathComponent)…"
         )
     }
 
