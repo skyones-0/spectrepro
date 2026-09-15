@@ -415,6 +415,11 @@ extension SpectrePro {
             // during deinit, so didSet passes this instance explicitly.
             pendingClipboardConfirmation = nil
 
+            let surfaceID = id
+            Task { @MainActor in
+                SessionRuntimeRegistry.shared.remove(surfaceID: surfaceID)
+            }
+
             // Remove all of our notificationcenter subscriptions
             let center = NotificationCenter.default
             center.removeObserver(self)
@@ -1619,7 +1624,7 @@ extension SpectrePro {
             menu.addItem(withTitle: "Paste", action: #selector(paste(_:)), keyEquivalent: "")
 
             // Smart SSH Transfer Actions (Propuesta 1)
-            if SSHTransferManager.shared.hasActiveSSHContext(for: self.id) {
+            if SessionRuntimeRegistry.shared.runtime(for: self.id).transfers.hasActiveSSHContext(for: self.id) {
                 menu.addItem(.separator())
                 if let text = self.accessibilitySelectedText()?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty, !text.contains("\n") {
                     item = menu.addItem(withTitle: "Download '\(text)' to ~/Downloads", action: #selector(downloadSelectedFileFromSSH(_:)), keyEquivalent: "")
@@ -1627,6 +1632,8 @@ extension SpectrePro {
                 }
                 item = menu.addItem(withTitle: "Upload File to Server... (⌘⇧U)", action: #selector(uploadFileToSSH(_:)), keyEquivalent: "")
                 item.setImageIfDesired(systemSymbolName: "arrow.up.circle")
+                item = menu.addItem(withTitle: "Open SFTP Browser...", action: #selector(openSFTPBrowser(_:)), keyEquivalent: "")
+                item.setImageIfDesired(systemSymbolName: "folder.badge.person.crop")
             }
 
             menu.addItem(.separator())
@@ -1667,11 +1674,12 @@ extension SpectrePro {
 
         @IBAction func paste(_ sender: Any?) {
             // Smart Paste: Upload copied files when in active SSH session
-            if SSHTransferManager.shared.hasActiveSSHContext(for: self.id),
+            let transferManager = SessionRuntimeRegistry.shared.runtime(for: self.id).transfers
+            if transferManager.hasActiveSSHContext(for: self.id),
                let fileURLs = NSPasteboard.general.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
                !fileURLs.isEmpty,
                fileURLs.contains(where: { $0.isFileURL }) {
-                SSHTransferManager.shared.uploadFiles(fileURLs, surface: self)
+                transferManager.uploadFiles(fileURLs, surface: self)
                 return
             }
 

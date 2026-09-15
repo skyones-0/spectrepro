@@ -5,25 +5,31 @@ import AppKit
 public final class ExpectSendEngine: ObservableObject {
     public static let shared = ExpectSendEngine()
 
-    @Published public private(set) var isRunning: Bool = false
-    @Published public private(set) var currentStatus: String? = nil
+    @Published public private(set) var isRunning = false
+    @Published public private(set) var currentStatus: String?
+    @Published public private(set) var lastRunSummary: String?
 
-    private var currentTask: Task<Void, Never>? = nil
+    private var currentTask: Task<Void, Never>?
 
-    private init() {}
+    public init() {}
 
     public func start(
         rules: [ExpectSendRule],
         textReader: @escaping () -> String,
-        textSender: @escaping (String) -> Void
+        textSender: @escaping (String) -> Void,
+        secretProvider: (() -> String?)? = nil,
+        credentialResolver: ((CredentialReference) -> String?)? = nil
     ) {
         cancel()
         guard !rules.isEmpty else { return }
 
         isRunning = true
+        lastRunSummary = nil
         currentStatus = "Expect/Send: Started (1/\(rules.count))"
 
-        currentTask = Task {
+        currentTask = Task { [weak self] in
+            var completed = 0
+            var failed = 0
             for (index, rule) in rules.enumerated() {
                 if Task.isCancelled { break }
 
@@ -32,20 +38,26 @@ public final class ExpectSendEngine: ObservableObject {
                 guard !expectedPattern.isEmpty else { continue }
 
                 await MainActor.run {
-                    self.currentStatus = "Waiting for '\(expectedPattern)' (\(stepNum)/\(rules.count))..."
+                    self?.currentStatus = "Waiting for \(rule.matchMode.title.lowercased()) '\(expectedPattern)' (\(stepNum)/\(rules.count))"
                 }
 
-                // Poll text buffer up to 15 seconds
                 var matched = false
-                let maxAttempts = 60 // 60 * 250ms = 15s
-                for _ in 0..<maxAttempts {
-                    if Task.isCancelled { break }
-                    try? await Task.sleep(nanoseconds: 250_000_000)
-
-                    let currentText = await MainActor.run { textReader() }
-                    if currentText.localizedCaseInsensitiveContains(expectedPattern) {
-                        matched = true
-                        break
+                let attempts = max(1, min(rule.retryCount, 10) + 1)
+                for attempt in 1...attempts {
+                    let timeout = max(0.1, min(rule.timeoutSeconds, 3600))
+                    let deadline = ContinuousClock.now + .seconds(timeout)
+                    while ContinuousClock.now < deadline {
+                        guard !Task.isCancelled else { break }
+                        try? await Task.sleep(for: .milliseconds(250))
+                        let currentText = await MainActor.run { textReader() }
+                        if Self.matches(currentText, pattern: expectedPattern, mode: rule.matchMode) {
+                            matched = true
+                            break
+                        }
+                    }
+                    if matched || Task.isCancelled { break }
+                    await MainActor.run {
+                        self?.currentStatus = "Retry \(attempt)/\(attempts) for '\(expectedPattern)'"
                     }
                 }
 
@@ -53,28 +65,48 @@ public final class ExpectSendEngine: ObservableObject {
 
                 if matched {
                     await MainActor.run {
-                        self.currentStatus = "Matched '\(expectedPattern)'. Sending response..."
-                        var toSend = rule.send
+                        self?.currentStatus = "Matched '\(expectedPattern)'. Sending response..."
+                        var toSend: String
+                        if let ref = rule.credentialReference, let resolved = credentialResolver?(ref) {
+                            toSend = resolved
+                        } else {
+                            toSend = rule.send
+                            if toSend.isEmpty,
+                               rule.matchMode == .literal,
+                               expectedPattern.range(of: "password|passphrase|secret", options: [.regularExpression, .caseInsensitive]) != nil {
+                                toSend = secretProvider?() ?? ""
+                            }
+                        }
                         if !toSend.hasSuffix("\n") {
                             toSend += "\n"
                         }
                         textSender(toSend)
                     }
-                    // Wait 500ms before checking next rule
-                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    completed += 1
                 } else {
+                    failed += 1
                     await MainActor.run {
-                        self.currentStatus = "Timeout waiting for '\(expectedPattern)'"
+                        self?.currentStatus = "Timeout waiting for '\(expectedPattern)'"
                     }
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    break
+                    if !rule.continueOnFailure { break }
                 }
             }
 
             await MainActor.run {
-                self.isRunning = false
-                self.currentStatus = nil
+                self?.isRunning = false
+                self?.currentStatus = nil
+                self?.lastRunSummary = "Completed \(completed) step(s), \(failed) failed"
             }
+        }
+    }
+
+    private static func matches(_ text: String, pattern: String, mode: ExpectSendMatchMode) -> Bool {
+        switch mode {
+        case .literal:
+            return text.localizedCaseInsensitiveContains(pattern)
+        case .regularExpression:
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+            return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
         }
     }
 

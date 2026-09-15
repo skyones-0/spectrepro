@@ -1,7 +1,19 @@
 import AppKit
 
 extension SpectrePro.SurfaceView {
+    @objc func openSFTPBrowser(_ sender: Any?) {
+        NotificationCenter.default.post(
+            name: .spectreproOpenSFTPBrowser,
+            object: self,
+            userInfo: ["surfaceUUID": id]
+        )
+    }
+
     static let dropTypes: Set<NSPasteboard.PasteboardType> = [.string, .fileURL]
+
+    private var sessionTransferManager: SSHTransferManager {
+        SessionRuntimeRegistry.shared.runtime(for: id).transfers
+    }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
         guard let types = sender.draggingPasteboard.types,
@@ -11,11 +23,11 @@ extension SpectrePro.SurfaceView {
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
-        if SSHTransferManager.shared.hasActiveSSHContext(for: id),
+        if sessionTransferManager.hasActiveSSHContext(for: id),
            let fileURLs = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
            !fileURLs.isEmpty,
            fileURLs.contains(where: \.isFileURL) {
-            SSHTransferManager.shared.uploadFiles(fileURLs, surface: self)
+            sessionTransferManager.uploadFiles(fileURLs, surface: self)
             return true
         }
 
@@ -37,17 +49,17 @@ extension SpectrePro.SurfaceView {
         if let window {
             panel.beginSheetModal(for: window) { [weak self] response in
                 guard let self, response == .OK else { return }
-                SSHTransferManager.shared.uploadFiles(panel.urls, surface: self)
+                sessionTransferManager.uploadFiles(panel.urls, surface: self)
             }
         } else if panel.runModal() == .OK {
-            SSHTransferManager.shared.uploadFiles(panel.urls, surface: self)
+            sessionTransferManager.uploadFiles(panel.urls, surface: self)
         }
     }
 
     @objc func downloadSelectedFileFromSSH(_ sender: Any?) {
         guard let path = accessibilitySelectedText()?.trimmingCharacters(in: .whitespacesAndNewlines),
               !path.isEmpty else { return }
-        SSHTransferManager.shared.downloadFile(remotePath: path, surface: self)
+        sessionTransferManager.downloadFile(remotePath: path, surface: self)
     }
 
     public func readVisibleText() -> String {

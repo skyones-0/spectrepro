@@ -2,12 +2,37 @@ import SwiftUI
 import AppKit
 
 public struct SSHTransferOverlay: View {
-    @ObservedObject private var manager = SSHTransferManager.shared
+    @ObservedObject private var manager: SSHTransferManager
 
-    public init() {}
+    @MainActor
+    public init(manager: SSHTransferManager) {
+        _manager = ObservedObject(wrappedValue: manager)
+    }
 
     public var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
+            if let error = manager.lastError {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(error)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(2)
+                    Button {
+                        manager.clearError()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color(nsColor: .windowBackgroundColor).opacity(0.95)))
+                .overlay(Capsule().stroke(Color.red.opacity(0.45), lineWidth: 1))
+            }
+
             // Active Transfer Pill
             if let active = manager.activeTransfer {
                 HStack(spacing: 8) {

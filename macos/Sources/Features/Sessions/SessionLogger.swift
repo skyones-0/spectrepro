@@ -15,14 +15,16 @@ public final class SessionLogger: ObservableObject {
     // Configuration options
     @Published public var prependTimestamps: Bool = true
     @Published public var stripANSI: Bool = true
+    @Published public var sanitizeSensitiveData: Bool = true
 
     private var fileHandle: FileHandle? = nil
     private var timer: Timer? = nil
     private var startTime: Date? = nil
+    private var lastScreenLines: [String] = []
     private let dateFormatter: DateFormatter
     private let timestampFormatter: DateFormatter
 
-    private init() {
+    public init() {
         self.dateFormatter = DateFormatter()
         self.dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
 
@@ -73,6 +75,7 @@ public final class SessionLogger: ObservableObject {
         self.lastError = nil
         self.isRecording = true
         self.startTime = Date()
+        self.lastScreenLines = []
         self.elapsedTimeFormatted = "00:00"
 
         // Initial Header
@@ -102,6 +105,10 @@ public final class SessionLogger: ObservableObject {
             output = cleanANSIEscapeSequences(from: output)
         }
 
+        if sanitizeSensitiveData {
+            output = sanitize(output)
+        }
+
         if prependTimestamps {
             let ts = timestampFormatter.string(from: Date())
             let lines = output.components(separatedBy: .newlines)
@@ -112,6 +119,59 @@ public final class SessionLogger: ObservableObject {
             handle.write(data)
             recordedBytes += data.count
         }
+    }
+
+    /// Ingests full-screen terminal text and records only newly added lines
+    /// to avoid duplicating screen snapshots.
+    public func ingestScreenText(_ text: String) {
+        guard isRecording, !text.isEmpty else { return }
+        let currentLines = text.components(separatedBy: .newlines)
+
+        if lastScreenLines.isEmpty {
+            lastScreenLines = currentLines
+            let initialOutput = currentLines.joined(separator: "\n")
+            if !initialOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                log(text: initialOutput + "\n")
+            }
+            return
+        }
+
+        // Find maximal suffix of lastScreenLines matching a prefix of currentLines
+        var matchLen: Int? = nil
+        let maxLookback = min(lastScreenLines.count, currentLines.count)
+        for len in stride(from: maxLookback, through: 1, by: -1) {
+            let lastSlice = lastScreenLines.suffix(len)
+            let currentSlice = currentLines.prefix(len)
+            if lastSlice.elementsEqual(currentSlice) {
+                matchLen = len
+                break
+            }
+        }
+
+        if let matchLen = matchLen {
+            let newLines = Array(currentLines.dropFirst(matchLen))
+            if !newLines.isEmpty {
+                let delta = newLines.joined(separator: "\n")
+                if !delta.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    log(text: delta + "\n")
+                }
+            }
+        } else {
+            // Check if user is typing on the same line (last line prefix of first new line)
+            if let last = lastScreenLines.last, let first = currentLines.first,
+               first.hasPrefix(last), first.count > last.count {
+                let diff = String(first.dropFirst(last.count))
+                let rest = currentLines.dropFirst().joined(separator: "\n")
+                let delta = diff + (rest.isEmpty ? "" : "\n" + rest)
+                log(text: delta + "\n")
+            } else {
+                let delta = currentLines.joined(separator: "\n")
+                if !delta.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    log(text: delta + "\n")
+                }
+            }
+        }
+        lastScreenLines = currentLines
     }
 
     public func stopRecording() -> URL? {
@@ -128,6 +188,7 @@ public final class SessionLogger: ObservableObject {
         timer?.invalidate()
         timer = nil
 
+        lastScreenLines = []
         let finalURL = currentLogURL
         isRecording = false
         startTime = nil
@@ -155,15 +216,79 @@ public final class SessionLogger: ObservableObject {
         let range = NSRange(location: 0, length: input.utf16.count)
         return regex.stringByReplacingMatches(in: input, options: [], range: range, withTemplate: "")
     }
+
+    private func sanitize(_ text: String) -> String {
+        var output = text
+
+        // Password / passphrase prompts
+        let passwordPattern = #"(?i)(password|passphrase|passwd|secret)\s*[:=]\s*\S+"#
+        if let regex = try? NSRegularExpression(pattern: passwordPattern) {
+            output = regex.stringByReplacingMatches(
+                in: output, range: NSRange(location: 0, length: output.utf16.count),
+                withTemplate: "$1: [REDACTED]")
+        }
+
+        // Bearer / Auth tokens
+        let tokenPattern = #"(?i)(bearer|token|authorization|auth)\s*[:=]\s*\S+"#
+        if let regex = try? NSRegularExpression(pattern: tokenPattern) {
+            output = regex.stringByReplacingMatches(
+                in: output, range: NSRange(location: 0, length: output.utf16.count),
+                withTemplate: "$1: [REDACTED]")
+        }
+
+        // AWS access keys
+        let awsPattern = #"(?:AKIA|ASIA)[A-Z0-9]{16}"#
+        if let regex = try? NSRegularExpression(pattern: awsPattern) {
+            output = regex.stringByReplacingMatches(
+                in: output, range: NSRange(location: 0, length: output.utf16.count),
+                withTemplate: "[REDACTED]")
+        }
+
+        // SSH private keys
+        let sshKeyPattern = #"-----BEGIN[^-]*PRIVATE KEY-----[\s\S]*?-----END[^-]*PRIVATE KEY-----"#
+        if let regex = try? NSRegularExpression(pattern: sshKeyPattern, options: .dotMatchesLineSeparators) {
+            output = regex.stringByReplacingMatches(
+                in: output, range: NSRange(location: 0, length: output.utf16.count),
+                withTemplate: "[PRIVATE KEY REDACTED]")
+        }
+
+        // Export statements with sensitive variable names
+        let exportPattern = #"(?i)(export\s+\w*(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)\w*\s*=\s*)\S+"#
+        if let regex = try? NSRegularExpression(pattern: exportPattern) {
+            output = regex.stringByReplacingMatches(
+                in: output, range: NSRange(location: 0, length: output.utf16.count),
+                withTemplate: "$1[REDACTED]")
+        }
+
+        // JWT tokens
+        let jwtPattern = #"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+"#
+        if let regex = try? NSRegularExpression(pattern: jwtPattern) {
+            output = regex.stringByReplacingMatches(
+                in: output, range: NSRange(location: 0, length: output.utf16.count),
+                withTemplate: "[JWT REDACTED]")
+        }
+
+        // GitHub / GitLab tokens
+        let ghPattern = #"(?:ghp_|gho_|ghs_|ghr_|glpat-)[A-Za-z0-9_-]{20,}"#
+        if let regex = try? NSRegularExpression(pattern: ghPattern) {
+            output = regex.stringByReplacingMatches(
+                in: output, range: NSRange(location: 0, length: output.utf16.count),
+                withTemplate: "[TOKEN REDACTED]")
+        }
+
+        return output
+    }
 }
 
 // MARK: - Live Recording Overlay Indicator
 
 public struct SessionRecordingIndicator: View {
-    @ObservedObject private var logger = SessionLogger.shared
+    @ObservedObject private var logger: SessionLogger
     @State private var isBlinking = false
 
-    public init() {}
+    public init(logger: SessionLogger? = nil) {
+        self._logger = ObservedObject(wrappedValue: logger ?? SessionLogger.shared)
+    }
 
     public var body: some View {
         if logger.isRecording {
