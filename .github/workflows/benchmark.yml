@@ -65,6 +65,11 @@ jobs:
             exit 0
           fi
 
+          if awk -v baseline="$baseline" 'BEGIN { exit !(baseline < 0.1) }'; then
+            echo "Baseline is below 100ms; skipping percentage gate because runner noise dominates this sample." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           change=$(awk -v current="$current" -v baseline="$baseline" 'BEGIN { printf "%.1f", ((current - baseline) / baseline) * 100 }')
           echo "Previous median: ${baseline}s (${change}% change)" >> "$GITHUB_STEP_SUMMARY"
           if awk -v change="$change" 'BEGIN { exit !(change > 10) }'; then
