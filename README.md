@@ -13,7 +13,7 @@
   &nbsp;·&nbsp;
   <a href="#what-you-can-do">Features</a>
   &nbsp;·&nbsp;
-  <a href="docs/GUIA_FUNCIONES_INTEGRADAS.md">User Guide (Guía de Funciones)</a>
+  <a href="docs/GUIA_FUNCIONES_AVANZADAS.md">Manual Técnico Avanzado</a>
   &nbsp;·&nbsp;
   <a href="#configuration">Configuration</a>
   &nbsp;·&nbsp;
