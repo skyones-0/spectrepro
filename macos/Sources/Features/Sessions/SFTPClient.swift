@@ -15,6 +15,35 @@ public struct SFTPDirectoryEntry: Identifiable, Equatable, Sendable {
     }
 }
 
+public struct SFTPTransferProgress: Equatable, Sendable {
+    public let fileName: String
+    public let isUpload: Bool
+    public var completedBytes: Int64
+    public var totalBytes: Int64?
+    public var bytesPerSecond: Double
+    public var estimatedTimeRemaining: TimeInterval?
+    public var fractionCompleted: Double?
+
+    public var detailText: String {
+        var details = [ByteCountFormatter.string(fromByteCount: completedBytes, countStyle: .file)]
+        if let totalBytes {
+            details.append("of (ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file))")
+        }
+        if bytesPerSecond > 0 {
+            details.append("• (ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file))/s")
+        }
+        if let estimatedTimeRemaining {
+            details.append("• (Self.formatDuration(estimatedTimeRemaining)) remaining")
+        }
+        return details.joined(separator: " ")
+    }
+
+    private static func formatDuration(_ duration: TimeInterval) -> String {
+        let seconds = max(0, Int(duration.rounded()))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
 public enum SFTPClientError: Error, LocalizedError, Equatable {
     case processUnavailable
     case invalidPath
@@ -29,12 +58,31 @@ public enum SFTPClientError: Error, LocalizedError, Equatable {
     }
 }
 
+private final class SFTPOutputAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ data: Data) {
+        lock.lock()
+        self.data.append(data)
+        lock.unlock()
+    }
+
+    func string() -> String {
+        lock.lock()
+        let snapshot = data
+        lock.unlock()
+        return String(data: snapshot, encoding: .utf8) ?? ""
+    }
+}
+
 @MainActor
 public final class SFTPClient: ObservableObject {
     @Published public private(set) var entries: [SFTPDirectoryEntry] = []
     @Published public private(set) var isLoading = false
     @Published public private(set) var error: SFTPClientError?
     @Published public private(set) var status: String?
+    @Published public private(set) var progress: SFTPTransferProgress?
 
     private let context: ActiveSSHContext
     private var process: Process?
@@ -54,7 +102,7 @@ public final class SFTPClient: ObservableObject {
         isLoading = true
         error = nil
         let command = "ls -la \(Self.quote(path))"
-        let task = Task { [weak self] in
+        Task { [weak self] in
             do {
                 let output = try await self?.runBatch([command]) ?? ""
                 let parsed = Self.parseListing(output, basePath: path)
@@ -77,13 +125,14 @@ public final class SFTPClient: ObservableObject {
                 }
             }
         }
-        Task { _ = await task.value }
     }
 
     public func cancel() {
         process?.terminate()
         process = nil
         isLoading = false
+        status = nil
+        progress = nil
     }
 
     public func upload(localURL: URL, remotePath: String) {
@@ -91,28 +140,67 @@ public final class SFTPClient: ObservableObject {
             error = .failed("The local file does not exist.")
             return
         }
-        runTransfer(command: "put \(Self.quote(localURL.path)) \(Self.quote(remotePath))", status: "Uploading \(localURL.lastPathComponent)…")
-    }
-
-    public func download(remotePath: String, localURL: URL) {
-        guard !remotePath.contains("\n"), !remotePath.contains("\r") else {
+        guard Self.isValidPath(remotePath) else {
             error = .invalidPath
             return
         }
-        runTransfer(command: "get \(Self.quote(remotePath)) \(Self.quote(localURL.path))", status: "Downloading \(localURL.lastPathComponent)…")
+        let totalBytes = (try? FileManager.default.attributesOfItem(atPath: localURL.path)[.size] as? Int64) ?? 0
+        runTransfer(
+            command: "put \(Self.quote(localURL.path)) \(Self.quote(remotePath))",
+            fileName: localURL.lastPathComponent,
+            isUpload: true,
+            totalBytes: totalBytes,
+            status: "Uploading (localURL.lastPathComponent)…"
+        )
     }
 
-    private func runTransfer(command: String, status: String) {
+    public func download(remotePath: String, localURL: URL) {
+        guard Self.isValidPath(remotePath), localURL.isFileURL else {
+            error = .invalidPath
+            return
+        }
+        runTransfer(
+            command: "get \(Self.quote(remotePath)) \(Self.quote(localURL.path))",
+            fileName: localURL.lastPathComponent,
+            isUpload: false,
+            totalBytes: nil,
+            status: "Downloading (localURL.lastPathComponent)…"
+        )
+    }
+
+    private func runTransfer(command: String, fileName: String, isUpload: Bool, totalBytes: Int64?, status: String) {
         process?.terminate()
         isLoading = true
         error = nil
         self.status = status
+        progress = SFTPTransferProgress(
+            fileName: fileName,
+            isUpload: isUpload,
+            completedBytes: 0,
+            totalBytes: totalBytes,
+            bytesPerSecond: 0,
+            estimatedTimeRemaining: nil,
+            fractionCompleted: totalBytes == 0 ? nil : 0
+        )
+        let startedAt = Date()
         Task { [weak self] in
             do {
-                _ = try await self?.runBatch([command])
+                _ = try await self?.runBatch([command]) { [weak self] output in
+                    guard let parsed = Self.parseTransferProgress(output) else { return }
+                    Task { @MainActor in
+                        self?.applyProgress(parsed, startedAt: startedAt)
+                    }
+                }
                 await MainActor.run {
                     self?.isLoading = false
                     self?.status = "Transfer complete"
+                    if var progress = self?.progress {
+                        progress.fractionCompleted = 1
+                        if let totalBytes {
+                            progress.completedBytes = totalBytes
+                        }
+                        self?.progress = progress
+                    }
                     self?.process = nil
                 }
             } catch let clientError as SFTPClientError {
@@ -120,6 +208,7 @@ public final class SFTPClient: ObservableObject {
                     self?.error = clientError
                     self?.isLoading = false
                     self?.status = nil
+                    self?.progress = nil
                     self?.process = nil
                 }
             } catch {
@@ -127,13 +216,14 @@ public final class SFTPClient: ObservableObject {
                     self?.error = .failed(error.localizedDescription)
                     self?.isLoading = false
                     self?.status = nil
+                    self?.progress = nil
                     self?.process = nil
                 }
             }
         }
     }
 
-    private func runBatch(_ commands: [String]) async throws -> String {
+    private func runBatch(_ commands: [String], onOutput: ((String) -> Void)? = nil) async throws -> String {
         guard FileManager.default.isExecutableFile(atPath: "/usr/bin/sftp") else {
             throw SFTPClientError.processUnavailable
         }
@@ -147,25 +237,136 @@ public final class SFTPClient: ObservableObject {
         process.standardOutput = output
         process.standardError = output
 
-        await MainActor.run { self.process = process }
-        try process.run()
-        let data = commands.joined(separator: "\n").appending("\n").data(using: .utf8)!
-        input.fileHandleForWriting.write(data)
-        try? input.fileHandleForWriting.close()
-        process.waitUntilExit()
+        self.process = process
 
-        let result = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        guard process.terminationStatus == 0 else {
-            throw SFTPClientError.failed(Self.lastDiagnostic(in: result))
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let outputBuffer = SFTPOutputAccumulator()
+
+                output.fileHandleForReading.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else { return }
+                    outputBuffer.append(data)
+                    if let text = String(data: data, encoding: .utf8) {
+                        onOutput?(text)
+                    }
+                }
+
+                process.terminationHandler = { [weak self] process in
+                    output.fileHandleForReading.readabilityHandler = nil
+                    let remainingData = output.fileHandleForReading.readDataToEndOfFile()
+                    outputBuffer.append(remainingData)
+                    let result = outputBuffer.string()
+
+                    let outcome: Result<String, Error>
+                    if process.terminationStatus == 0 {
+                        outcome = .success(result)
+                    } else {
+                        outcome = .failure(SFTPClientError.failed(Self.lastDiagnostic(in: result)))
+                    }
+
+                    Task { @MainActor in
+                        if self?.process === process {
+                            self?.process = nil
+                        }
+                    }
+                    continuation.resume(with: outcome)
+                }
+
+                do {
+                    try process.run()
+                    let data = Data(commands.joined(separator: "\n").appending("\n").utf8)
+                    input.fileHandleForWriting.write(data)
+                    try input.fileHandleForWriting.close()
+                } catch {
+                    output.fileHandleForReading.readabilityHandler = nil
+                    process.terminationHandler = nil
+                    process.terminate()
+                    self.process = nil
+                    continuation.resume(throwing: error)
+                }
+            }
+        } onCancel: {
+            process.terminate()
         }
-        return result
     }
 
     private static func quote(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    private static func lastDiagnostic(in output: String) -> String {
+    private func applyProgress(_ parsed: ParsedTransferProgress, startedAt: Date) {
+        guard var progress else { return }
+        let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
+        let completedBytes: Int64
+        if let fraction = parsed.fraction, let totalBytes = progress.totalBytes {
+            completedBytes = Int64(Double(totalBytes) * fraction)
+        } else {
+            completedBytes = progress.completedBytes
+        }
+        progress.completedBytes = max(progress.completedBytes, completedBytes)
+        progress.fractionCompleted = parsed.fraction ?? progress.fractionCompleted
+        progress.bytesPerSecond = parsed.bytesPerSecond ?? (Double(progress.completedBytes) / elapsed)
+        if let totalBytes = progress.totalBytes, progress.bytesPerSecond > 0 {
+            progress.estimatedTimeRemaining = Double(max(0, totalBytes - progress.completedBytes)) / progress.bytesPerSecond
+        } else {
+            progress.estimatedTimeRemaining = parsed.eta
+        }
+        self.progress = progress
+    }
+
+    private struct ParsedTransferProgress {
+        let fraction: Double?
+        let bytesPerSecond: Double?
+        let eta: TimeInterval?
+    }
+
+    nonisolated private static func parseTransferProgress(_ output: String) -> ParsedTransferProgress? {
+        guard let percentString = captures(pattern: #"(\d{1,3})%"#, in: output)?.first,
+              let percent = Double(percentString), percent <= 100 else {
+            return nil
+        }
+        let speed: Double?
+        if let values = captures(pattern: #"([0-9]+(?:\.[0-9]+)?)\s*([KMG]?B)/s"#, in: output),
+           let value = Double(values[0]) {
+            let multiplier: Double
+            switch values[1] {
+            case "KB": multiplier = 1_024
+            case "MB": multiplier = 1_048_576
+            case "GB": multiplier = 1_073_741_824
+            default: multiplier = 1
+            }
+            speed = value * multiplier
+        } else {
+            speed = nil
+        }
+        let eta: TimeInterval?
+        if let values = captures(pattern: #"(\d+):(\d+)\s*ETA"#, in: output),
+           let minutes = Double(values[0]), let seconds = Double(values[1]) {
+            eta = minutes * 60 + seconds
+        } else {
+            eta = nil
+        }
+        return ParsedTransferProgress(fraction: percent / 100, bytesPerSecond: speed, eta: eta)
+    }
+
+    nonisolated private static func captures(pattern: String, in text: String) -> [String]? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        guard let match = regex.firstMatch(in: text, range: range) else { return nil }
+        return (1..<match.numberOfRanges).compactMap { index in
+            let captureRange = match.range(at: index)
+            guard let range = Range(captureRange, in: text) else { return nil }
+            return String(text[range])
+        }
+    }
+
+    private static func isValidPath(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && !value.contains("\n") && !value.contains("\r") && !value.contains("\0")
+    }
+
+    nonisolated private static func lastDiagnostic(in output: String) -> String {
         output.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

@@ -63,8 +63,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/SpectreProDerivedData" \
             -resultBundlePath "$RUNNER_TEMP/SpectrePro.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
-            test \
-            -skip-testing SpectreProUITests
+            test
 
       - name: Smoke check app bundle
         run: |
