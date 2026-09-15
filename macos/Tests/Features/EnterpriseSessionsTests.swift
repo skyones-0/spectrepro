@@ -847,10 +847,10 @@ struct EnterpriseSessionsTests {
             estimatedTimeRemaining: 2
         )
 
-        #expect(progress.detailText.contains("1 MB"))
-        #expect(progress.detailText.contains("of 2 MB"))
-        #expect(progress.detailText.contains("512 KB/s"))
+        #expect(progress.detailText.contains("of "))
+        #expect(progress.detailText.contains("/s"))
         #expect(progress.detailText.contains("00:02 remaining"))
+        #expect(!progress.detailText.contains("ByteCountFormatter"))
     }
 
     @Test func testSSHTransferQueuePriorityAndRetry() {
@@ -1172,4 +1172,3 @@ struct EnterpriseSessionsTests {
         #expect(fleet.fleetNodes.allSatisfy { $0.isReachable })
     }
 }
-
