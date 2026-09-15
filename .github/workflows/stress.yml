@@ -1,0 +1,62 @@
+name: macOS Stress Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-stress-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stress:
+    name: Core and session stress tests
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore stress build caches
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cache/zig
+            ~/Library/Developer/Xcode/DerivedData/SourcePackages
+          key: stress-${{ runner.arch }}-${{ hashFiles('build.zig.zon', 'macos/SpectrePro.xcodeproj/project.pbxproj', 'macos/SpectrePro.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            stress-${{ runner.arch }}-
+
+      - name: Install Zig
+        run: |
+          brew install zig
+          test "$(zig version)" = "0.16.0"
+
+      - name: Run Zig stress tests
+        run: |
+          zig build test -Doptimize=ReleaseFast
+
+      - name: Run macOS session stress tests
+        run: |
+          xcodebuild test \
+            -project macos/SpectrePro.xcodeproj \
+            -scheme SpectrePro \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/SpectreProStressDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/SpectreProStress.xcresult" \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:SpectreProTests/EnterpriseSessionsTests
+
+      - name: Upload stress results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SpectrePro-stress-${{ github.run_id }}
+          path: ${{ runner.temp }}/SpectreProStress.xcresult
+          if-no-files-found: warn

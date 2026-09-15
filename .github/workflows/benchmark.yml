@@ -1,6 +1,10 @@
 name: macOS Benchmarks
 
 on:
+  pull_request:
+  push:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
     - cron: "17 5 * * 1"
@@ -64,7 +68,8 @@ jobs:
           change=$(awk -v current="$current" -v baseline="$baseline" 'BEGIN { printf "%.1f", ((current - baseline) / baseline) * 100 }')
           echo "Previous median: ${baseline}s (${change}% change)" >> "$GITHUB_STEP_SUMMARY"
           if awk -v change="$change" 'BEGIN { exit !(change > 10) }'; then
-            echo "::warning::Benchmark regression exceeds 10%; review the result before merging performance-sensitive changes."
+            echo "::error::Benchmark regression exceeds 10%; performance budget failed."
+            exit 1
           fi
 
       - name: Upload benchmark results

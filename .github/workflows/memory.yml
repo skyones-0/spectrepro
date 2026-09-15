@@ -1,0 +1,42 @@
+name: macOS Memory Checks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  memory:
+    name: Leak check for benchmark process
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Zig
+        run: |
+          brew install zig
+          test "$(zig version)" = "0.16.0"
+
+      - name: Build release benchmark
+        run: zig build -Demit-bench -Doptimize=ReleaseFast -Demit-macos-app=false
+
+      - name: Run leak check
+        run: |
+          mkdir -p memory-results
+          leaks --atExit -- ./zig-out/bin/spectrepro-bench +codepoint-width 2>&1 | tee memory-results/leaks.txt
+          if rg -q "[1-9][0-9]* leak" memory-results/leaks.txt; then
+            echo "::error::Memory leaks detected in benchmark process."
+            exit 1
+          fi
+
+      - name: Upload memory results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SpectrePro-memory-${{ github.run_id }}
+          path: memory-results
