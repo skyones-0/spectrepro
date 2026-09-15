@@ -13,6 +13,8 @@
   &nbsp;·&nbsp;
   <a href="#what-you-can-do">Features</a>
   &nbsp;·&nbsp;
+  <a href="docs/GUIA_FUNCIONES_INTEGRADAS.md">User Guide (Guía de Funciones)</a>
+  &nbsp;·&nbsp;
   <a href="#configuration">Configuration</a>
   &nbsp;·&nbsp;
   <a href="docs/ARCHITECTURE.md">Architecture</a>
