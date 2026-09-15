@@ -344,9 +344,9 @@ enum UpdateState: Equatable {
             }
 
             if let currentHash = currentCommit, !currentHash.isEmpty,
-               let url = URL(string: "https://github.com/spectrepro-org/spectrepro/compare/\(currentHash)...\(newHash)") {
+               let url = URL(string: "https://github.com/skyones-0/spectrepro/compare/\(currentHash)...\(newHash)") {
                 self = .compareTip(url)
-            } else if let url = URL(string: "https://github.com/spectrepro-org/spectrepro/commit/\(newHash)") {
+            } else if let url = URL(string: "https://github.com/skyones-0/spectrepro/commit/\(newHash)") {
                 self = .commit(url)
             } else {
                 return nil

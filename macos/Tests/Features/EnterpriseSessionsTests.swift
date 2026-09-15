@@ -837,6 +837,22 @@ struct EnterpriseSessionsTests {
         #expect(pct3 == nil)
     }
 
+    @Test func testSFTPTransferProgressFormatsLiveValues() {
+        let progress = SFTPTransferProgress(
+            fileName: "backup.tar.gz",
+            isUpload: false,
+            completedBytes: 1_048_576,
+            totalBytes: 2_097_152,
+            bytesPerSecond: 524_288,
+            estimatedTimeRemaining: 2
+        )
+
+        #expect(progress.detailText.contains("1 MB"))
+        #expect(progress.detailText.contains("of 2 MB"))
+        #expect(progress.detailText.contains("512 KB/s"))
+        #expect(progress.detailText.contains("00:02 remaining"))
+    }
+
     @Test func testSSHTransferQueuePriorityAndRetry() {
         let manager = SSHTransferManager.shared
         manager.clearHistory()
@@ -1156,5 +1172,4 @@ struct EnterpriseSessionsTests {
         #expect(fleet.fleetNodes.allSatisfy { $0.isReachable })
     }
 }
-
 

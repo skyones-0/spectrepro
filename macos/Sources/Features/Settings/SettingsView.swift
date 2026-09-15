@@ -626,6 +626,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
             app.reloadConfig()
             didFail = false
             statusMessage = "Applied \(option.key)."
+            loadedOptionValues = optionValues
             AppDiagnostics.event("Applied advanced setting \(option.key).", category: "Settings")
         } catch {
             fail("Could not save configuration: \(error.localizedDescription)")
