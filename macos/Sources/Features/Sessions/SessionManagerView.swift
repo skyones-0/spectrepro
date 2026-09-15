@@ -117,7 +117,9 @@ public struct SavedSession: Identifiable, Codable, Equatable {
     public var sessionType: String // "ssh", "console", "telnet"
 
     // Advanced SSH Parameters (Core Shell & SecureCRT grade)
+    public var sshAuthentication: SSHAuthenticationMethod
     public var identityFile: String?
+    public var pkcs11Provider: String?
     public var jumpHost: String?
     public var forwardAgent: Bool
     public var compression: Bool
@@ -137,7 +139,9 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         user: String? = nil,
         port: Int? = 22,
         sessionType: String = "ssh",
+        sshAuthentication: SSHAuthenticationMethod = .automatic,
         identityFile: String? = nil,
+        pkcs11Provider: String? = nil,
         jumpHost: String? = nil,
         forwardAgent: Bool = false,
         compression: Bool = false,
@@ -156,7 +160,9 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         self.user = user
         self.port = port
         self.sessionType = sessionType
+        self.sshAuthentication = sshAuthentication
         self.identityFile = identityFile
+        self.pkcs11Provider = pkcs11Provider
         self.jumpHost = jumpHost
         self.forwardAgent = forwardAgent
         self.compression = compression
@@ -180,7 +186,9 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         self.port = try container.decodeIfPresent(Int.self, forKey: .port)
         self.sessionType = try container.decodeIfPresent(String.self, forKey: .sessionType) ?? "ssh"
 
+        self.sshAuthentication = try container.decodeIfPresent(SSHAuthenticationMethod.self, forKey: .sshAuthentication) ?? .automatic
         self.identityFile = try container.decodeIfPresent(String.self, forKey: .identityFile)
+        self.pkcs11Provider = try container.decodeIfPresent(String.self, forKey: .pkcs11Provider)
         self.jumpHost = try container.decodeIfPresent(String.self, forKey: .jumpHost)
         self.forwardAgent = try container.decodeIfPresent(Bool.self, forKey: .forwardAgent) ?? false
         self.compression = try container.decodeIfPresent(Bool.self, forKey: .compression) ?? false
@@ -215,7 +223,11 @@ public struct SavedSession: Identifiable, Codable, Equatable {
                 "-o", "ControlPersist=10m"
             ]
             if let port, port != 22 { arguments += ["-p", "\(port)"] }
-            if let key = identityFile, !key.trimmingCharacters(in: .whitespaces).isEmpty {
+            if sshAuthentication == .yubikeyPIV,
+               let provider = pkcs11Provider?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !provider.isEmpty {
+                arguments += ["-I", (provider as NSString).expandingTildeInPath]
+            } else if let key = identityFile, !key.trimmingCharacters(in: .whitespaces).isEmpty {
                 arguments += ["-i", (key as NSString).expandingTildeInPath]
             }
             if let jump = jumpHost, !jump.trimmingCharacters(in: .whitespaces).isEmpty { arguments += ["-J", jump] }
@@ -234,7 +246,7 @@ public struct SavedSession: Identifiable, Codable, Equatable {
             if let command = initialCommand, !command.trimmingCharacters(in: .whitespaces).isEmpty {
                 arguments += ["-t", command]
             }
-            return SSHProcessSpec(executable: "/usr/bin/ssh", arguments: arguments)
+            return SSHProcessSpec(executable: YubiKeyDetector.sshExecutable(for: sshAuthentication), arguments: arguments)
         }
     }
 
@@ -246,7 +258,7 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         case "console":
             return "screen \(host) \(port ?? 115200)"
         default:
-            var parts: [String] = ["ssh"]
+            var parts: [String] = [YubiKeyDetector.sshExecutable(for: sshAuthentication)]
 
             // Multiplexing for zero-handshake file transfers (SFTP / SCP)
             parts.append("-o ControlMaster=auto")
@@ -257,7 +269,13 @@ public struct SavedSession: Identifiable, Codable, Equatable {
                 parts.append("-p \(p)")
             }
 
-            if let key = identityFile, !key.trimmingCharacters(in: .whitespaces).isEmpty {
+            if sshAuthentication == .yubikeyPIV,
+               let provider = pkcs11Provider?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !provider.isEmpty {
+                let escapedProvider = provider.replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "\"", with: "\\\"")
+                parts.append("-I \"\(escapedProvider)\"")
+            } else if let key = identityFile, !key.trimmingCharacters(in: .whitespaces).isEmpty {
                 let expanded = (key as NSString).expandingTildeInPath
                 parts.append("-i \"\(expanded)\"")
             }
@@ -944,7 +962,12 @@ private struct SessionEditorModal: View {
     @State private var environmentBadge: String = "None"
 
     // Authentication
+    @State private var sshAuthentication: SSHAuthenticationMethod = .automatic
     @State private var identityFile: String = ""
+    @State private var pkcs11Provider: String = ""
+    @State private var yubiKeyStatus: String?
+    @State private var yubiKeyPublicKeys: [String] = []
+    @State private var isDetectingYubiKey = false
     @State private var forwardAgent: Bool = false
     @State private var credentialSecret: String = ""
     @State private var storeCredential: Bool = false
@@ -1159,6 +1182,69 @@ private struct SessionEditorModal: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 6) {
+                Text("Authentication Method")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("Authentication Method", selection: $sshAuthentication) {
+                    ForEach(SSHAuthenticationMethod.allCases) { method in
+                        Text(method.title).tag(method)
+                    }
+                }
+                .labelsHidden()
+
+                if sshAuthentication == .yubikeyPIV {
+                    HStack {
+                        TextField("PKCS#11 library path", text: $pkcs11Provider)
+                            .textFieldStyle(.roundedBorder)
+                        Button {
+                            detectYubiKey()
+                        } label: {
+                            Label("Detect", systemImage: "externaldrive.badge.checkmark")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(isDetectingYubiKey)
+                    }
+                    Text("The PIN is requested by OpenSSH and is never stored by Spectre Pro.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    if !yubiKeyPublicKeys.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("PIV keys exposed by YubiKey")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(yubiKeyPublicKeys, id: \.self) { key in
+                                Text(key)
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .lineLimit(2)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                    }
+                } else if sshAuthentication == .yubikeyFIDO2 {
+                    HStack(spacing: 6) {
+                        Image(systemName: "key.radiowaves.forward")
+                        Text("Select a FIDO2 key ending in _sk below, then touch your YubiKey when prompted.")
+                        Spacer()
+                        Button {
+                            detectYubiKey()
+                        } label: {
+                            Label("Detect", systemImage: "checkmark.circle")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(isDetectingYubiKey)
+                    }
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                }
+
+                if let yubiKeyStatus {
+                    Label(yubiKeyStatus, systemImage: "checkmark.shield")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+
                 Text("Identity File (Private Key)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -1191,6 +1277,14 @@ private struct SessionEditorModal: View {
                     .font(.system(size: 11))
                     .buttonStyle(.bordered)
                     .controlSize(.small)
+                }
+
+                if sshAuthentication == .yubikeyFIDO2,
+                   !identityFile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                   !identityFile.lowercased().hasSuffix("_sk") {
+                    Label("FIDO2 keys normally end in _sk, for example id_ed25519_sk.", systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
                 }
             }
 
@@ -1473,6 +1567,8 @@ private struct SessionEditorModal: View {
             user = s.user ?? ""
             environmentBadge = s.environmentBadge ?? "None"
             identityFile = s.identityFile ?? ""
+            sshAuthentication = s.sshAuthentication
+            pkcs11Provider = s.pkcs11Provider ?? ""
             forwardAgent = s.forwardAgent
             jumpHost = s.jumpHost ?? ""
             portForwards = s.portForwards
@@ -1484,6 +1580,25 @@ private struct SessionEditorModal: View {
             sessionLogging = s.sessionLogging
             expectSendRules = s.expectSendRules
             storeCredential = s.credentialReference != nil
+        }
+    }
+
+    private func detectYubiKey() {
+        isDetectingYubiKey = true
+        Task {
+            let result = await YubiKeyDetector.detect()
+            await MainActor.run {
+                if let path = result.pkcs11LibraryPath {
+                    pkcs11Provider = path
+                }
+                yubiKeyPublicKeys = result.pivPublicKeys
+                if sshAuthentication == .yubikeyFIDO2 && !result.supportsFIDO2 {
+                    yubiKeyStatus = "FIDO2 is unavailable in \(result.sshExecutablePath). Install a FIDO2-capable OpenSSH."
+                } else {
+                    yubiKeyStatus = "\(result.summary) (\(result.sshExecutablePath))"
+                }
+                isDetectingYubiKey = false
+            }
         }
     }
 
@@ -1537,7 +1652,9 @@ private struct SessionEditorModal: View {
             user: user.trimmingCharacters(in: .whitespaces).isEmpty ? nil : user.trimmingCharacters(in: .whitespaces),
             port: Int(port) ?? 22,
             sessionType: sessionType,
+            sshAuthentication: sshAuthentication,
             identityFile: identityFile.trimmingCharacters(in: .whitespaces).isEmpty ? nil : identityFile.trimmingCharacters(in: .whitespaces),
+            pkcs11Provider: pkcs11Provider.trimmingCharacters(in: .whitespaces).isEmpty ? nil : pkcs11Provider.trimmingCharacters(in: .whitespaces),
             jumpHost: jumpHost.trimmingCharacters(in: .whitespaces).isEmpty ? nil : jumpHost.trimmingCharacters(in: .whitespaces),
             forwardAgent: forwardAgent,
             compression: compression,

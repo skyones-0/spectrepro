@@ -163,6 +163,7 @@ public enum SessionValidationError: Error, LocalizedError, Equatable {
     case invalidUser
     case invalidPort
     case invalidIdentityFile
+    case invalidPKCS11Provider
     case invalidJumpHost
     case invalidForward
     case unsupportedSessionType
@@ -174,6 +175,7 @@ public enum SessionValidationError: Error, LocalizedError, Equatable {
         case .invalidUser: return "Username contains unsupported characters."
         case .invalidPort: return "Port must be between 1 and 65535."
         case .invalidIdentityFile: return "Identity file path is invalid."
+        case .invalidPKCS11Provider: return "PKCS#11 provider path is invalid."
         case .invalidJumpHost: return "Jump host is invalid."
         case .invalidForward: return "Port forwarding rule is invalid."
         case .unsupportedSessionType: return "Session type is not supported."
@@ -210,6 +212,10 @@ public enum SessionValidator {
         if let identity = session.identityFile, !identity.isEmpty,
            identity.contains("\n") || identity.contains("\r") || identity.hasPrefix("-") {
             errors.append(.invalidIdentityFile)
+        }
+        if let provider = session.pkcs11Provider, !provider.isEmpty,
+           provider.contains("\n") || provider.contains("\r") || provider.hasPrefix("-") {
+            errors.append(.invalidPKCS11Provider)
         }
         if let jump = session.jumpHost, !jump.isEmpty, !isValidHost(jump) {
             errors.append(.invalidJumpHost)

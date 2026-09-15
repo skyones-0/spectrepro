@@ -224,12 +224,12 @@ public final class SFTPClient: ObservableObject {
     }
 
     private func runBatch(_ commands: [String], onOutput: ((String) -> Void)? = nil) async throws -> String {
-        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/sftp") else {
+        guard FileManager.default.isExecutableFile(atPath: context.sftpExecutable) else {
             throw SFTPClientError.processUnavailable
         }
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sftp")
+        process.executableURL = URL(fileURLWithPath: context.sftpExecutable)
         process.arguments = ["-b", "-"] + context.buildBaseSFTPArguments()
         let input = Pipe()
         let output = Pipe()
