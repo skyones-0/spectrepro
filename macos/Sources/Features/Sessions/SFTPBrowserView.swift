@@ -67,7 +67,40 @@ public struct SFTPBrowserView: View {
 
             Divider()
 
-            if client.isLoading {
+            if let progress = client.progress {
+                VStack(alignment: .leading, spacing: 6) {
+                    SFTPTransferGraphView(progress: progress)
+                    HStack(spacing: 8) {
+                        Image(systemName: progress.isUpload ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                            .foregroundStyle(progress.isUpload ? .cyan : .green)
+                        Text(progress.isUpload ? "Uploading" : "Downloading")
+                            .font(.caption.weight(.medium))
+                        Text(progress.fileName)
+                            .font(.caption)
+                            .lineLimit(1)
+                        Spacer()
+                        if client.isLoading {
+                            Button { client.cancel() } label: {
+                                Image(systemName: "xmark.circle.fill")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Cancel transfer")
+                        }
+                    }
+                    if let fractionCompleted = progress.fractionCompleted {
+                        ProgressView(value: fractionCompleted)
+                            .tint(progress.isUpload ? .cyan : .green)
+                    } else {
+                        ProgressView()
+                            .tint(progress.isUpload ? .cyan : .green)
+                    }
+                    Text(progress.detailText)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+            } else if client.isLoading {
                 ProgressView("Loading directory…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = client.error {

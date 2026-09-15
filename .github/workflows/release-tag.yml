@@ -84,6 +84,8 @@ jobs:
             -target SpectrePro \
             -configuration Release \
             CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
             MARKETING_VERSION="$SPECTREPRO_VERSION" \
             build
 
