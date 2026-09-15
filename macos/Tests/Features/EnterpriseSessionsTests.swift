@@ -34,6 +34,55 @@ struct EnterpriseSessionsTests {
         #expect(!spec.arguments.joined(separator: " ").contains("&&"))
     }
 
+    @Test func testLegacySessionDefaultsToAutomaticAuthentication() throws {
+        let data = #"{"name":"Legacy","host":"server.example.com"}"#.data(using: .utf8)!
+        let session = try JSONDecoder().decode(SavedSession.self, from: data)
+
+        #expect(session.sshAuthentication == .automatic)
+        #expect(session.pkcs11Provider == nil)
+    }
+
+    @Test func testPIVProviderIsPassedToSSH() throws {
+        let session = SavedSession(
+            name: "YubiKey Server",
+            host: "server.example.com",
+            sshAuthentication: .yubikeyPIV,
+            pkcs11Provider: "/Library/Application Support/Yubico/libykcs11.dylib"
+        )
+
+        let spec = try session.buildProcessSpec()
+
+        #expect(spec.arguments.contains("-I"))
+        #expect(spec.arguments.contains("/Library/Application Support/Yubico/libykcs11.dylib"))
+        #expect(!spec.arguments.contains("-i"))
+    }
+
+    @Test func testInvalidPKCS11ProviderIsRejected() {
+        let session = SavedSession(
+            name: "Invalid YubiKey",
+            host: "server.example.com",
+            sshAuthentication: .yubikeyPIV,
+            pkcs11Provider: "-unsafe-provider"
+        )
+
+        #expect(SessionValidator.validate(session).contains(.invalidPKCS11Provider))
+    }
+
+    @Test func testPIVProviderIsPassedToFileTransfers() {
+        let context = ActiveSSHContext(
+            host: "server.example.com",
+            sshAuthentication: .yubikeyPIV,
+            pkcs11Provider: "/opt/homebrew/lib/libykcs11.dylib"
+        )
+
+        #expect(context.buildBaseSCPArguments().contains("-I"))
+        #expect(context.buildBaseSCPArguments().contains("/opt/homebrew/lib/libykcs11.dylib"))
+        #expect(context.buildBaseSFTPArguments().contains("-I"))
+        #expect(context.buildBaseSFTPArguments().contains("/opt/homebrew/lib/libykcs11.dylib"))
+        #expect(context.scpExecutable.hasSuffix("/scp"))
+        #expect(context.sftpExecutable.hasSuffix("/sftp"))
+    }
+
     @Test func testSessionValidatorRejectsShellSyntax() {
         let invalid = SavedSession(name: "Test", host: "server.example.com; touch /tmp/x")
         #expect(SessionValidator.validate(invalid).contains(.invalidHost))
@@ -1107,8 +1156,5 @@ struct EnterpriseSessionsTests {
         #expect(fleet.fleetNodes.allSatisfy { $0.isReachable })
     }
 }
-
-
-
 
 

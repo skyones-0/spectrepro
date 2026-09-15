@@ -107,6 +107,9 @@ public struct ActiveSSHContext: Equatable {
     public var user: String?
     public var port: Int?
     public var identityFile: String?
+    public var sshAuthentication: SSHAuthenticationMethod
+    public var pkcs11Provider: String?
+    public var sshExecutable: String
     public var jumpHost: String?
     public var controlPath: String
 
@@ -115,12 +118,17 @@ public struct ActiveSSHContext: Equatable {
         user: String? = nil,
         port: Int? = 22,
         identityFile: String? = nil,
+        sshAuthentication: SSHAuthenticationMethod = .automatic,
+        pkcs11Provider: String? = nil,
         jumpHost: String? = nil
     ) {
         self.host = host
         self.user = user
         self.port = port
         self.identityFile = identityFile
+        self.sshAuthentication = sshAuthentication
+        self.pkcs11Provider = pkcs11Provider
+        self.sshExecutable = YubiKeyDetector.sshExecutable(for: sshAuthentication)
         self.jumpHost = jumpHost
         self.controlPath = "/tmp/spectre-ssh-%C.sock"
     }
@@ -130,6 +138,19 @@ public struct ActiveSSHContext: Equatable {
             return "\(u)@\(host)"
         }
         return host
+    }
+
+    public var scpExecutable: String {
+        siblingExecutable(named: "scp")
+    }
+
+    public var sftpExecutable: String {
+        siblingExecutable(named: "sftp")
+    }
+
+    private func siblingExecutable(named name: String) -> String {
+        let sibling = URL(fileURLWithPath: sshExecutable).deletingLastPathComponent().appendingPathComponent(name).path
+        return FileManager.default.isExecutableFile(atPath: sibling) ? sibling : "/usr/bin/\(name)"
     }
 
     public var connectionOptions: [String] {
@@ -153,7 +174,9 @@ public struct ActiveSSHContext: Equatable {
         if let p = port, p != 22 {
             args += ["-P", "\(p)"]
         }
-        if let key = identityFile, !key.isEmpty {
+        if sshAuthentication == .yubikeyPIV, let provider = pkcs11Provider, !provider.isEmpty {
+            args += ["-I", (provider as NSString).expandingTildeInPath]
+        } else if let key = identityFile, !key.isEmpty {
             let expanded = (key as NSString).expandingTildeInPath
             args += ["-i", expanded]
         }
@@ -170,7 +193,9 @@ public struct ActiveSSHContext: Equatable {
             "-o", "ControlPersist=10m"
         ]
         if let p = port, p != 22 { args += ["-P", "\(p)"] }
-        if let key = identityFile, !key.isEmpty {
+        if sshAuthentication == .yubikeyPIV, let provider = pkcs11Provider, !provider.isEmpty {
+            args += ["-I", (provider as NSString).expandingTildeInPath]
+        } else if let key = identityFile, !key.isEmpty {
             args += ["-i", (key as NSString).expandingTildeInPath]
         }
         if let jump = jumpHost, !jump.isEmpty { args += ["-o", "ProxyJump=\(jump)"] }
@@ -305,6 +330,8 @@ public final class SSHTransferManager: ObservableObject {
             user: session.user,
             port: session.port,
             identityFile: session.identityFile,
+            sshAuthentication: session.sshAuthentication,
+            pkcs11Provider: session.pkcs11Provider,
             jumpHost: session.jumpHost
         )
         contexts[surfaceId] = ctx
@@ -356,7 +383,7 @@ public final class SSHTransferManager: ObservableObject {
         scpArgs.append("\(context.targetSpec):./")
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/scp")
+        process.executableURL = URL(fileURLWithPath: context.scpExecutable)
         process.arguments = scpArgs
 
         let pipe = Pipe()
@@ -488,7 +515,7 @@ public final class SSHTransferManager: ObservableObject {
         scpArgs.append(localDestURL.path)
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/scp")
+        process.executableURL = URL(fileURLWithPath: context.scpExecutable)
         process.arguments = scpArgs
 
         let pipe = Pipe()
