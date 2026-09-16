@@ -56,6 +56,10 @@ extension SpectrePro {
             SessionRuntimeRegistry.shared.runtime(for: surfaceView.id)
         }
 
+        private var isSSHSession: Bool {
+            sessionRuntime.session?.sessionType.lowercased() == "ssh"
+        }
+
         private var isFocusedSurface: Bool {
             if surfaceView.focused { return true }
             if surfaceFocus { return true }
@@ -258,6 +262,25 @@ extension SpectrePro {
                     isFocusedSurface &&
                     windowFocus {
                     SecureInputOverlay()
+                }
+
+                if isFocusedSurface && windowFocus {
+                    SidebarToggleOverlay(
+                        isShowing: QuickCommandsState.shared.isShowing,
+                        onToggle: {
+                            QuickCommandsState.shared.toggle()
+                        }
+                    )
+                }
+
+                if isSSHSession && isFocusedSurface && windowFocus {
+                    SFTPOpenOverlay {
+                        NotificationCenter.default.post(
+                            name: .spectreproOpenSFTPBrowser,
+                            object: surfaceView,
+                            userInfo: ["surfaceUUID": surfaceView.id]
+                        )
+                    }
                 }
 
                 if surfaceView.serialDevice != nil && isFocusedSurface && windowFocus {

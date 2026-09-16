@@ -126,18 +126,6 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         .frame(maxWidth: .infinity)
                         .padding(.trailing, quickCommandsState.isShowing ? 0 : 44)
 
-                        SidebarToggleOverlay(
-                            isShowing: quickCommandsState.isShowing,
-                            onToggle: {
-                                if let delegate = delegate {
-                                    delegate.toggleQuickCommands(nil)
-                                } else {
-                                    QuickCommandsState.shared.toggle()
-                                }
-                            }
-                        )
-                        .padding(.trailing, 10)
-                        .padding(.bottom, 10)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } sidebar: {

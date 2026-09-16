@@ -6,14 +6,40 @@ public struct SpectreProOverlayBackground: View {
     public var cornerRadius: CGFloat = 12
     public var isPermanent: Bool = true
     public var isActive: Bool = true
+    public var animatedBorder: Bool = true
 
     @State private var gradientAngle: Angle = .degrees(0)
     @State private var gradientOpacity: CGFloat = 0.55
+    @ObservedObject private var quickCommandsState = QuickCommandsState.shared
 
-    public init(cornerRadius: CGFloat = 12, isPermanent: Bool = true, isActive: Bool = true) {
+    public init(
+        cornerRadius: CGFloat = 12,
+        isPermanent: Bool = true,
+        isActive: Bool = true,
+        animatedBorder: Bool = true
+    ) {
         self.cornerRadius = cornerRadius
         self.isPermanent = isPermanent
         self.isActive = isActive
+        self.animatedBorder = animatedBorder
+    }
+
+    private var borderGradient: AngularGradient {
+        AngularGradient(
+            colors: [.cyan, .blue, .purple, .pink, .orange, .cyan],
+            center: .center,
+            startAngle: gradientAngle,
+            endAngle: gradientAngle + .degrees(360)
+        )
+    }
+
+    private var borderOpacity: Double {
+        guard animatedBorder else { return 0 }
+        return isPermanent ? 1 : (isActive ? 1 : 0.22)
+    }
+
+    private var usesThinAnimatedBorder: Bool {
+        animatedBorder && quickCommandsState.overlayBorderStyle == .thinAnimated
     }
 
     public var body: some View {
@@ -38,15 +64,36 @@ public struct SpectreProOverlayBackground: View {
                 .opacity(isPermanent ? gradientOpacity : (isActive ? gradientOpacity : 0))
         }
         .mask(RoundedRectangle(cornerRadius: cornerRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(isPermanent ? Color.white.opacity(0.35) : (isActive ? Color.white.opacity(0.35) : Color.primary.opacity(0.12)), lineWidth: 1)
-        )
+        .overlay {
+            Group {
+                if usesThinAnimatedBorder {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .stroke(borderGradient, lineWidth: 1)
+                            .blur(radius: 3)
+                            .opacity(0.35 * borderOpacity)
+
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(borderGradient, lineWidth: 1)
+                            .opacity(borderOpacity)
+                    }
+                } else {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(
+                            isPermanent
+                                ? Color.white.opacity(0.35)
+                                : (isActive ? Color.white.opacity(0.35) : Color.primary.opacity(0.12)),
+                            lineWidth: 1
+                        )
+                }
+            }
+            .allowsHitTesting(false)
+        }
         .onAppear {
-            withAnimation(Animation.linear(duration: 2).repeatForever(autoreverses: false)) {
+            withAnimation(Animation.linear(duration: 8).repeatForever(autoreverses: false)) {
                 gradientAngle = .degrees(360)
             }
-            withAnimation(Animation.linear(duration: 2).repeatForever(autoreverses: true)) {
+            withAnimation(Animation.linear(duration: 8).repeatForever(autoreverses: true)) {
                 gradientOpacity = 1.0
             }
         }
@@ -100,5 +147,27 @@ struct SerialExitOverlay: View {
         .help("Disconnect serial session")
         .accessibilityLabel("Disconnect serial session")
         .accessibilityHint("Closes the current serial terminal and releases the device")
+    }
+}
+
+struct SFTPOpenOverlay: View {
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            Image(systemName: "arrow.up.arrow.down")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 17, height: 17)
+                .foregroundColor(.black)
+                .frame(width: 35, height: 35)
+                .background(SpectreProOverlayBackground(cornerRadius: 12, isPermanent: true))
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .backport.pointerStyle(.link)
+        .help("Open SFTP browser")
+        .accessibilityLabel("Open SFTP browser")
+        .accessibilityHint("Browse and transfer files over the active SSH connection")
     }
 }

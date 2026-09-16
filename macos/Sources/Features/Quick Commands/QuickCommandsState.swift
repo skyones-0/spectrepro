@@ -37,6 +37,20 @@ public enum SidebarTab: String, CaseIterable, Identifiable {
     }
 }
 
+enum OverlayBorderStyle: String, CaseIterable, Identifiable {
+    case current
+    case thinAnimated
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .current: return "Current"
+        case .thinAnimated: return "Thin animated"
+        }
+    }
+}
+
 /// Shared state for Quick Commands sidebar across all windows and tabs.
 /// Ensures that sidebar visibility, width, filter, and active group
 /// are globally unified and target the currently active terminal session.
@@ -71,12 +85,20 @@ final class QuickCommandsState: ObservableObject {
             userDefaults.set(isAnimatedBorderEnabled, forKey: "co.skyones.spectrepro.animatedSidebarBorder")
         }
     }
+    @Published var overlayBorderStyle: OverlayBorderStyle {
+        didSet {
+            userDefaults.set(overlayBorderStyle.rawValue, forKey: "co.skyones.spectrepro.overlayBorderStyle")
+        }
+    }
 
     private init() {
         self.isShowing = userDefaults.bool(forKey: isShowingKey)
         let savedWidth = CGFloat(userDefaults.double(forKey: widthKey))
         self.width = savedWidth > 150 ? savedWidth : 320
         self.isAnimatedBorderEnabled = userDefaults.object(forKey: "co.skyones.spectrepro.animatedSidebarBorder") as? Bool ?? true
+        self.overlayBorderStyle = OverlayBorderStyle(
+            rawValue: userDefaults.string(forKey: "co.skyones.spectrepro.overlayBorderStyle") ?? "current"
+        ) ?? .current
     }
 
     func toggle() {

@@ -170,6 +170,23 @@ final class QuickCommandLibrary: ObservableObject {
     }
 
     @discardableResult
+    func move(_ command: QuickCommand, to group: String?) -> Bool {
+        guard let index = commands.firstIndex(where: { $0.id == command.id }) else { return false }
+        let normalizedGroup = group?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var updated = commands
+        var moved = updated[index]
+        moved.group = normalizedGroup?.isEmpty == true ? nil : normalizedGroup
+        guard moved != updated[index] else { return true }
+        updated[index] = moved
+        var groups = customGroups
+        if let normalizedGroup, !normalizedGroup.isEmpty, !groups.contains(normalizedGroup) {
+            groups.append(normalizedGroup)
+            groups.sort()
+        }
+        return persist(updated, groups: groups)
+    }
+
+    @discardableResult
     func renameGroup(oldName: String, newName: String, newIcon: String? = nil) -> Bool {
         let trimmedNew = newName.trimmingCharacters(in: .whitespaces)
         guard !trimmedNew.isEmpty else { return false }

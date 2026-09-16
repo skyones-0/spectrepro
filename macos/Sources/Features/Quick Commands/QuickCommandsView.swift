@@ -250,7 +250,10 @@ struct QuickCommandsView: View {
                     Button {
                         editing = QuickCommand(title: "", command: "", group: state.selectedGroup)
                     } label: {
-                        Label("New Command", systemImage: "apple.terminal")
+                        Label(
+                            state.selectedGroup.map { "New Command in \($0)" } ?? "New Ungrouped Command",
+                            systemImage: "apple.terminal"
+                        )
                     }
 
                     Button {
@@ -384,6 +387,11 @@ struct QuickCommandsView: View {
                                             surface: surface,
                                             isUngrouped: false,
                                             onToggle: { toggleGroup(grp) },
+                                            onSelectGroup: { state.selectedGroup = grp },
+                                            onAddCommand: {
+                                                editing = QuickCommand(title: "", command: "", group: grp)
+                                            },
+                                            onDropCommand: moveCommand,
                                             onEditGroup: { renamingGroup = GroupRenameItem(name: grp) },
                                             onDeleteGroup: { deletingGroup = grp },
                                             onExecute: { handleExecute($0) },
@@ -410,6 +418,11 @@ struct QuickCommandsView: View {
                                         surface: surface,
                                         isUngrouped: true,
                                         onToggle: { toggleGroup("__ungrouped__") },
+                                        onSelectGroup: { state.selectedGroup = nil },
+                                        onAddCommand: {
+                                            editing = QuickCommand(title: "", command: "", group: nil)
+                                        },
+                                        onDropCommand: moveCommand,
                                         onEditGroup: nil,
                                         onDeleteGroup: nil,
                                         onExecute: { handleExecute($0) },
@@ -602,6 +615,21 @@ struct QuickCommandsView: View {
         } else {
             parameterizing = command
         }
+    }
+
+    private func moveCommand(providers: [NSItemProvider], to group: String?) -> Bool {
+        guard let provider = providers.first else { return false }
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let value = object as? NSString,
+                  let id = UUID(uuidString: value as String) else { return }
+            DispatchQueue.main.async {
+                guard let command = library.commands.first(where: { $0.id == id }) else { return }
+                if library.move(command, to: group) {
+                    state.selectedGroup = group
+                }
+            }
+        }
+        return true
     }
 }
 
@@ -949,6 +977,9 @@ private struct QuickCommandCard: View, Equatable {
             .onHover { inside in
                 isHovered = inside
             }
+            .onDrag {
+                NSItemProvider(object: command.id.uuidString as NSString)
+            }
             .contextMenu {
                 Button("Execute") { onExecute() }
                 Button("Insert in prompt") { onInsert() }
@@ -982,6 +1013,9 @@ private struct GroupAccordionSection: View {
     var isUngrouped: Bool = false
 
     let onToggle: () -> Void
+    let onSelectGroup: () -> Void
+    let onAddCommand: () -> Void
+    let onDropCommand: ([NSItemProvider], String?) -> Bool
     let onEditGroup: (() -> Void)?
     let onDeleteGroup: (() -> Void)?
     let onExecute: (QuickCommand) -> Void
@@ -992,6 +1026,7 @@ private struct GroupAccordionSection: View {
     let onDelete: (QuickCommand) -> Void
 
     @State private var isHeaderHovered: Bool = false
+    @State private var isDropTargeted: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -1027,6 +1062,11 @@ private struct GroupAccordionSection: View {
                 if let onEditGroup = onEditGroup, let onDeleteGroup = onDeleteGroup {
                     Menu {
                         Button {
+                            onAddCommand()
+                        } label: {
+                            Label("Add Command", systemImage: "plus")
+                        }
+                        Button {
                             onEditGroup()
                         } label: {
                             Label("Edit Group…", systemImage: "pencil")
@@ -1051,16 +1091,32 @@ private struct GroupAccordionSection: View {
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isHeaderHovered ? Color.primary.opacity(0.06) : Color.clear)
+                    .fill(
+                        isDropTargeted
+                            ? Color.accentColor.opacity(0.16)
+                            : (isHeaderHovered ? Color.primary.opacity(0.06) : Color.clear)
+                    )
             )
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.accentColor.opacity(0.8), lineWidth: 1)
+                }
+            }
             .contentShape(Rectangle())
             .onHover { inside in
                 isHeaderHovered = inside
             }
             .onTapGesture {
+                onSelectGroup()
                 onToggle()
             }
             .contextMenu {
+                Button {
+                    onAddCommand()
+                } label: {
+                    Label("Add Command", systemImage: "plus")
+                }
                 if let onEditGroup = onEditGroup {
                     Button {
                         onEditGroup()
@@ -1076,6 +1132,13 @@ private struct GroupAccordionSection: View {
                     }
                 }
             }
+            .onDrop(
+                of: [.text],
+                isTargeted: $isDropTargeted,
+                perform: { providers in
+                    onDropCommand(providers, isUngrouped ? nil : title)
+                }
+            )
 
             // Commands list inside this accordion section
             if isExpanded {

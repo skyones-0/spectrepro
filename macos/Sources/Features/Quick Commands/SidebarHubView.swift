@@ -69,7 +69,7 @@ public struct SidebarHubView: View {
                         .background(
                             ZStack {
                                 if tab == .tasks && taskManager.activeCount > 0 {
-                                    SpectreProOverlayBackground(cornerRadius: 6, isPermanent: true)
+                                    SpectreProOverlayBackground(cornerRadius: 6, isPermanent: true, animatedBorder: false)
                                 } else if isSelected {
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(Color.primary.opacity(0.12))

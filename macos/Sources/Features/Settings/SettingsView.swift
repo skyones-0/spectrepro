@@ -246,6 +246,12 @@ private struct WindowSettingsTab: View {
 
                 Toggle("Animated sidebar border", isOn: $configuration.animatedSidebarBorder)
 
+                Picker("Overlay border", selection: $configuration.overlayBorderStyle) {
+                    ForEach(OverlayBorderStyle.allCases) { style in
+                        Text(style.title).tag(style.rawValue)
+                    }
+                }
+
                 Text("Adds a subtle rotating gradient glow around the sidebar.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -380,6 +386,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
     @Published var titlebarStyle = "transparent"
     @Published var showTopbar = false
     @Published var animatedSidebarBorder = true
+    @Published var overlayBorderStyle = OverlayBorderStyle.current.rawValue
     @Published var quitAfterLastWindowCloses = false
     @Published var workingDirectory = ""
     @Published var shellIntegration = "detect"
@@ -428,6 +435,7 @@ private final class ConfigurationSettingsModel: ObservableObject {
         titlebarStyle = readValue(for: "macos-titlebar-style", at: app.configurationFileURL) ?? "transparent"
         showTopbar = boolValue(for: "macos-topbar", at: app.configurationFileURL, default: false)
         animatedSidebarBorder = QuickCommandsState.shared.isAnimatedBorderEnabled
+        overlayBorderStyle = QuickCommandsState.shared.overlayBorderStyle.rawValue
         quitAfterLastWindowCloses = config.shouldQuitAfterLastWindowClosed
         workingDirectory = readValue(for: "working-directory", at: app.configurationFileURL) ?? ""
         shellIntegration = readValue(for: "shell-integration", at: app.configurationFileURL) ?? "detect"
@@ -490,8 +498,9 @@ private final class ConfigurationSettingsModel: ObservableObject {
             let values = currentValues
             let changedKeys = values.keys.filter { values[$0] != loadedValues[$0] }
             let animatedSidebarBorderChanged = animatedSidebarBorder != QuickCommandsState.shared.isAnimatedBorderEnabled
+            let overlayBorderStyleChanged = overlayBorderStyle != QuickCommandsState.shared.overlayBorderStyle.rawValue
 
-            guard !changedKeys.isEmpty || clearsThemePalette || animatedSidebarBorderChanged else {
+            guard !changedKeys.isEmpty || clearsThemePalette || animatedSidebarBorderChanged || overlayBorderStyleChanged else {
                 didFail = false
                 statusMessage = "No changes to apply."
                 AppDiagnostics.event("Skipped settings save because no values changed.", category: "Settings")
@@ -510,13 +519,16 @@ private final class ConfigurationSettingsModel: ObservableObject {
             try contents.write(to: url, atomically: true, encoding: .utf8)
             app.reloadConfig()
             QuickCommandsState.shared.isAnimatedBorderEnabled = animatedSidebarBorder
+            QuickCommandsState.shared.overlayBorderStyle = OverlayBorderStyle(rawValue: overlayBorderStyle) ?? .current
             AppDiagnostics.verbosity = verbosityLevel
             didFail = false
             statusMessage = "Applied to \(url.path)."
             loadedValues = values
             clearsThemePalette = false
             hasThemeColorOverrides = Self.hasThemeColorOverrides(at: url)
-            let appliedKeys = changedKeys + (animatedSidebarBorderChanged ? ["animated-sidebar-border"] : [])
+            let appliedKeys = changedKeys +
+                (animatedSidebarBorderChanged ? ["animated-sidebar-border"] : []) +
+                (overlayBorderStyleChanged ? ["overlay-border-style"] : [])
             AppDiagnostics.event("Applied settings: \(appliedKeys.sorted().joined(separator: ", ")).", category: "Settings")
             if restartNeeded {
                 presentRestartPrompt()
