@@ -164,6 +164,7 @@ public enum SessionValidationError: Error, LocalizedError, Equatable {
     case invalidPort
     case invalidIdentityFile
     case invalidPKCS11Provider
+    case invalidKexAlgorithms
     case invalidJumpHost
     case invalidForward
     case unsupportedSessionType
@@ -176,6 +177,7 @@ public enum SessionValidationError: Error, LocalizedError, Equatable {
         case .invalidPort: return "Port must be between 1 and 65535."
         case .invalidIdentityFile: return "Identity file path is invalid."
         case .invalidPKCS11Provider: return "PKCS#11 provider path is invalid."
+        case .invalidKexAlgorithms: return "Key exchange algorithms contain unsupported characters or an empty entry."
         case .invalidJumpHost: return "Jump host is invalid."
         case .invalidForward: return "Port forwarding rule is invalid."
         case .unsupportedSessionType: return "Session type is not supported."
@@ -217,6 +219,11 @@ public enum SessionValidator {
            provider.contains("\n") || provider.contains("\r") || provider.hasPrefix("-") {
             errors.append(.invalidPKCS11Provider)
         }
+        if let kexAlgorithms = session.kexAlgorithms,
+           !kexAlgorithms.isEmpty,
+           !isValidKexAlgorithms(kexAlgorithms) {
+            errors.append(.invalidKexAlgorithms)
+        }
         if let jump = session.jumpHost, !jump.isEmpty, !isValidHost(jump) {
             errors.append(.invalidJumpHost)
         }
@@ -238,6 +245,14 @@ public enum SessionValidator {
               !forward.remoteHost.isEmpty,
               !forward.remoteHost.contains(where: { $0 == "\n" || $0 == "\r" || $0 == " " }) else { return false }
         return true
+    }
+
+    private static func isValidKexAlgorithms(_ value: String) -> Bool {
+        guard value.count <= 1_024 else { return false }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "@._+-^"))
+        return value.split(separator: ",", omittingEmptySubsequences: false).allSatisfy { token in
+            !token.isEmpty && token.unicodeScalars.allSatisfy(allowed.contains)
+        }
     }
 }
 
