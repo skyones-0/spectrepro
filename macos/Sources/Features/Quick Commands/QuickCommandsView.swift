@@ -1410,10 +1410,10 @@ private struct QuickCommandEditor: View {
                 .font(.system(.body, design: .monospaced))
                 .onPasteCommand(of: [.text]) { providers in
                     guard let provider = providers.first else { return }
-                    provider.loadObject(ofClass: String.self) { value, _ in
-                        guard let value else { return }
+                    provider.loadObject(ofClass: NSString.self) { value, _ in
+                        guard let value = value as? NSString else { return }
                         DispatchQueue.main.async {
-                            command.command = value.trimmingCharacters(in: .newlines)
+                            command.command = (value as String).trimmingCharacters(in: .newlines)
                         }
                     }
                 }
