@@ -5,8 +5,7 @@
     .paths = .{""},
     .dependencies = .{
         .libxml2 = .{
-            .url = "https://deps.files.ghostty.org/libxml2-2.11.5.tar.gz",
-            .hash = "N-V-__8AAG3RoQEyRC2Vw7Qoro5SYBf62IHn3HjqtNVY6aWK",
+            .path = "../../vendor/zig-deps/packages/libxml2-2.11.5/libxml2-2.11.5",
             .lazy = true,
         },
     },

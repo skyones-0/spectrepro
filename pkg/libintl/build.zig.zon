@@ -5,8 +5,7 @@
     .paths = .{""},
     .dependencies = .{
         .gettext = .{
-            .url = "https://deps.files.ghostty.org/gettext-0.24.tar.gz",
-            .hash = "N-V-__8AADcZkgn4cMhTUpIz6mShCKyqqB-NBtf_S2bHaTC-",
+            .path = "../../vendor/zig-deps/packages/gettext-0.24/gettext-0.24",
             .lazy = true,
         },
 

@@ -1,0 +1,46 @@
+# bash completion script for zf
+# inspired by https://github.com/ogham/exa/blob/master/completions/bash/exa
+
+_zf() {
+    local cur prev OPTS
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # argument completions
+    case $prev in
+        -'?'|--help|-h|--version|-v)
+            return 0
+            ;;
+
+        --lines|--height|-l)
+            COMPREPLY=( $(compgen -W "number" -- $cur) )
+            return 0
+            ;;
+
+        --preview-width)
+            COMPREPLY=( $(compgen -W "number" -- $cur) )
+            return 0
+            ;;
+
+        --filter|-f)
+
+            return 0
+            ;;
+
+    esac
+
+    # option completions
+    case $cur in
+        --*)
+            COMPREPLY=( $( compgen -W "--delimiter --filter --height --keep-order --lines --plain --preview --preview-width --version --help" -- "$cur" ) )
+            return 0
+            ;;
+
+        -*)
+            COMPREPLY=( $( compgen -W "-d -0 -f -k -l -p -v -h" -- $cur ) )
+            ;;
+    esac
+
+}
+
+complete -F _zf zf

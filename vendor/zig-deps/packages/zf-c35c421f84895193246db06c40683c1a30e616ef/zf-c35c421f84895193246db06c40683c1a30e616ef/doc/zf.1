@@ -1,0 +1,184 @@
+.TH ZF 1 "2024-10-28" "zf 0.10.3"
+
+.SH NAME
+zf -\ a commandline fuzzy finder that prioritizes matches on filenames
+
+.SH SYNOPSIS
+.B zf [options]
+
+.SH DESCRIPTION
+.B zf is a simple, general-purpose fuzzy finder that prioritizes matches on
+filenames.
+
+zf reads a list of newline separated strings on stdin and displays an
+interactive interface. Pressing enter outputs the selected line on stdout. Text
+may be entered to filter the list of strings.
+
+Multiple lines may be marked as selected with tab and shift-tab. When multiple
+lines are selected, pressing enter outputs only the marked lines to stdout.
+
+Each whitespace-separated term in the query string is used separately to narrow
+down the search results. For example, searching for "init config" will select
+all results that match both "init" and "config". Note that the query is restricted
+to a maximum of 16 whitespace-separated search terms.
+
+Matching is case insensitive unless an uppercase letter is found in the query.
+
+.SH OPTIONS
+
+.TP
+.BR \-d ", " \-\-delimiter
+Set the delimiter used to split the input (default \\n)
+.
+.TP
+.BR \-0
+Shorthand for -d'\\0' to split on null bytes
+.
+.TP
+.BR \-f ", " \-\-filter
+Skip interactive use and filter using the given query
+.
+.TP
+.BR \-\-height
+The height of the interface in rows (default 10)
+.
+.TP
+.BR \-k ", " \-\-keep\-order
+Don't sort by rank and preserve order of lines read on stdin. This makes zf remove
+any lines that don't match, but the order of lines will not change.
+.
+.TP
+.BR \-l ", " \-\-lines
+Alias of --height. Deprecated and will be removed in version 1.0.0.
+.
+.TP
+.BR \-p ", " \-\-plain
+Treat input as plaintext and disable filepath matching features. Useful when the input lines are not
+file paths.
+.
+.TP
+.BR \-\-preview
+Executes a command substituting {} with the current selected line and displays the output in a side column.
+.
+.TP
+.BR \-\-preview-width
+Sets the preview column width (default 60%).
+.
+.TP
+.BR \-v ", " \-\-version
+Show version information and exit
+.
+.TP
+.BR \-h ", " \-\-help
+Display help and exit
+
+.SH ENV VARIABLES
+
+.BR ZF_PROMPT
+Override the default >  prompt by assigning a string to this variable.
+For example export ZF_PROMPT="$ ".
+
+.BR ZF_HIGHLIGHT
+Set the color used to highlight matches. Valid colors are: black, red, green, yellow, blue, magenta, cyan, white
+bright_black, bright_red, bright_green, bright_yellow, bright_blue, bright_magenta, bright_cyan, and bright_white.
+The default color is cyan.
+
+.BR ZF_VI_MODE
+When this variable is present and not empty ctrl+k moves up a line. When disabled ctrl+k deletes from the cursor
+to the end of line.
+
+.BR NO_COLOR
+Disables colors. See https://no-color.org
+
+.SH COMMANDS
+
+.TP
+.BR enter
+Write the selected line or all marked lines to stdout and exit
+.
+.TP
+.BR "escape, ctrl-c"
+Exit zf without selecting anything
+.
+.TP
+.BR "up, ctrl-p, ctrl-k"
+Select the next line up
+.
+.TP
+.BR "down ctrl-n, ctrl-j"
+Select the next line down
+.
+.TP
+.BR "tab"
+Mark the current line as selected and select the next line
+.
+.TP
+.BR shift-tab
+Mark the current line as selected and select the previous line
+.
+.TP
+.BR "left, ctrl-b"
+Move the cursor left
+.
+.TP
+.BR "right, ctrl-f"
+Move the cursor right
+.
+.TP
+.BR ctrl-a
+Move the cursor to the beginning of the line
+.
+.TP
+.BR ctrl-e
+Move the cursor to the end of the line
+.
+.TP
+.BR "backspace, ctrl-h"
+Delete the character before the cursor
+.
+.TP
+.BR "delete, ctrl-d"
+Delete the character under the cursor
+.
+.TP
+.BR ctrl-w
+Delete the word before the cursor
+.
+.TP
+.BR ctrl-u
+Delete from the cursor to the beginning of the line
+
+.SH EXAMPLES
+
+.TP
+.BR "find -type f | zf"
+Fuzzy find on the file tree in the current directory
+.
+.TP
+.BR "vim $(find -type f | zf)"
+Fuzzy find on the file tree and open the selcted file in vim
+.
+.TP
+.BR "git switch $(git branch | cut -c 3- | zf)"
+Switch to selected git branch
+.
+.TP
+.BR "find -type f | zf --preview 'cat {}'"
+Fuzzy find files and show a preview of the contents using cat
+
+.SH EXIT STATUS
+
+.TP
+.BR 0
+Success
+.
+.TP
+.BR 1
+No input given on stdin or aborted the interactive interface with esc or ctrl-c
+.
+.TP
+.BR 2
+Error
+
+.SH AUTHOR
+Written by Nathan Craddock

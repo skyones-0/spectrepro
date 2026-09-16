@@ -1,0 +1,25 @@
+#compdef zf
+
+# zsh completion script for zf
+# inspired by https://blog.kloetzl.info/how-to-write-a-zsh-completion/
+
+_zf() {
+    local -a args
+    args+=(
+        "(- *)"{-v,--version}"[Show version information and exit]"
+        "(- *)"{-h,--help}"[Display this help and exit]"
+        "(-d --delimiter)"{-d,--delimiter}"[Set the delimiter used to split the input (default \n)]:string:"
+        '-0[Shorthand for -d'\0' to split on null bytes]'
+        "(-f --filter)"{-f,--filter}"[Skip interactive use and filter using the given query]:string:"
+        '--height[The height of the interface in rows (default 10)]:int:'
+        "(-k --keep-order)"{-k,--keep-order}"[Don't sort by rank and preserve order of lines read on stdin]"
+        "(-l --lines)"{-l,--lines}"[Alias of --height (deprecated)]:int:"
+        "(-p --plain)"{-p,--plain}"[Treat input as plaintext and disable filepath matching features]"
+                "(-f --filter)"{-f,--filter}"[Skip interactive use and filter using the given query]:string:"
+        '--preview[Execute COMMAND substituting {} with the selected line and display the output in a side column]'
+        '--preview-width[Set the preview column width (default 60%)]:int:'
+    )
+    _arguments $args[@]
+}
+
+_zf

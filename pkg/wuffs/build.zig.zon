@@ -5,21 +5,18 @@
     .dependencies = .{
         .translate_c = .{
             .lazy = true,
-            .url = "https://codeberg.org/vancluever/translate-c/archive/4e879eb8aba615de112eabd1231ea6e01920cead.tar.gz",
-            .hash = "translate_c-0.0.0-Q_BUWhVNBwDOEcIqub4VFPJPB6D9dgwzUMHTX5KWr8Xr",
+            .path = "../../vendor/zig-deps/packages/4e879eb8aba615de112eabd1231ea6e01920cead/translate-c",
         },
 
         // google/wuffs
         .wuffs = .{
-            .url = "https://deps.files.ghostty.org/wuffs-7411f488fe2e2c205c3d3b3d28638b7356522930.tar.gz",
-            .hash = "N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI",
+            .path = "../../vendor/zig-deps/packages/wuffs-7411f488fe2e2c205c3d3b3d28638b7356522930/N-V-__8AAP5JWgCGP_AD0teWpa4krRvE9VPZzvviGdbmN4jI",
             .lazy = true,
         },
 
         // make-github-pseudonymous-again/pixels
         .pixels = .{
-            .url = "https://deps.files.ghostty.org/pixels-12207ff340169c7d40c570b4b6a97db614fe47e0d83b5801a932dcd44917424c8806.tar.gz",
-            .hash = "N-V-__8AADYiAAB_80AWnH1AxXC0tql9thT-R-DYO1gBqTLc",
+            .path = "../../vendor/zig-deps/packages/pixels-12207ff340169c7d40c570b4b6a97db614fe47e0d83b5801a932dcd44917424c8806/pixels-d843c2714d32e15b48b8d7eeb480295af537f877",
             .lazy = true,
         },
     },
