@@ -1408,14 +1408,9 @@ private struct QuickCommandEditor: View {
             TextField("Name", text: $command.title)
             TextField("Command (supports <var>, {clipboard}, {selection})", text: $command.command)
                 .font(.system(.body, design: .monospaced))
-                .onPasteCommand(of: [.text]) { providers in
-                    guard let provider = providers.first else { return }
-                    provider.loadObject(ofClass: NSString.self) { value, _ in
-                        guard let value = value as? NSString else { return }
-                        DispatchQueue.main.async {
-                            command.command = (value as String).trimmingCharacters(in: .newlines)
-                        }
-                    }
+                .onPasteCommand(of: [.text]) { _ in
+                    guard let value = NSPasteboard.general.string(forType: .string) else { return }
+                    command.command = value.trimmingCharacters(in: .newlines)
                 }
 
             VStack(alignment: .leading, spacing: 4) {
