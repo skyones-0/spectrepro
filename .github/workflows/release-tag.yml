@@ -69,6 +69,20 @@ jobs:
           brew install zig
           test "$(zig version)" = "0.16.0"
 
+      - name: Ensure Metal toolchain
+        run: |
+          if ! xcrun -sdk macosx metal -v >/dev/null 2>&1; then
+            for attempt in 1 2 3; do
+              xcodebuild -downloadComponent MetalToolchain && break
+              if [[ "$attempt" == 3 ]]; then
+                echo "Metal Toolchain could not be installed." >&2
+                exit 1
+              fi
+              sleep 15
+            done
+          fi
+          xcrun -sdk macosx metal -v >/dev/null
+
       - name: Build SpectreProKit
         run: |
           zig build \
