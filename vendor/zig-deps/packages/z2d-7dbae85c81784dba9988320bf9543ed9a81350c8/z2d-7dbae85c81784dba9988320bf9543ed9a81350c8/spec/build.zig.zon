@@ -6,8 +6,7 @@
     .dependencies = .{
         .z2d = .{ .path = ".." },
         .zbench = .{
-            .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.13.0.tar.gz",
-            .hash = "zbench-0.13.0-YTdc7xVBAQCCMC-IdLLuotBeiNNNm8k9Pi2V4VYqrwfI",
+            .path = "../../../v0.13.0/zBench-0.13.0",
         },
     },
     .paths = .{
