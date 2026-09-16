@@ -1,6 +1,6 @@
 .{
     .name = .spectrepro,
-    .version = "1.0.28",
+    .version = "1.0.29",
     .paths = .{""},
     .fingerprint = 0xa7ae993b7fd76412,
     .minimum_zig_version = "0.16.0",
