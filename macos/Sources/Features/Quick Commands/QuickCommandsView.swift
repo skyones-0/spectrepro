@@ -1430,8 +1430,22 @@ struct QuickCommandsLayout<Terminal: View, Sidebar: View>: View {
                 terminal()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if isShowing {
-                    Rectangle()
-                        .fill(Color(nsColor: .separatorColor))
+                    ZStack {
+                        Rectangle()
+                            .fill(.clear)
+
+                        Capsule()
+                            .fill(
+                                hoveringDivider
+                                    ? Color.accentColor.opacity(0.9)
+                                    : Color.clear
+                            )
+                            .frame(width: hoveringDivider ? 2 : 1)
+                            .shadow(
+                                color: hoveringDivider ? Color.accentColor.opacity(0.45) : .clear,
+                                radius: 4
+                            )
+                    }
                         .frame(width: 5)
                         .onHover { inside in
                             guard inside != hoveringDivider else { return }
@@ -1451,6 +1465,7 @@ struct QuickCommandsLayout<Terminal: View, Sidebar: View>: View {
                                 width = bounded((dragStart ?? width) - value.translation.width, total: geometry.size.width)
                             }
                             .onEnded { _ in dragStart = nil })
+                        .animation(.easeInOut(duration: 0.15), value: hoveringDivider)
                         .accessibilityLabel("Quick Commands Width")
                         .accessibilityValue("\(Int(width)) points")
                         .accessibilityAdjustableAction { direction in
