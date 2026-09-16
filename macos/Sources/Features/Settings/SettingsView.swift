@@ -54,8 +54,15 @@ private struct AppearanceSettingsTab: View {
             Section("Theme") {
                 Picker("Theme", selection: $configuration.theme) {
                     Text("System Default").tag("")
-                    ForEach(configuration.availableThemes, id: \.self) { theme in
-                        Text(theme).tag(theme)
+                    Section("Featured themes") {
+                        ForEach(configuration.featuredThemes, id: \.self) { theme in
+                            Text(theme).tag(theme)
+                        }
+                    }
+                    Section("All bundled themes") {
+                        ForEach(configuration.otherAvailableThemes, id: \.self) { theme in
+                            Text(theme).tag(theme)
+                        }
                     }
                 }
                 .pickerStyle(.menu)
@@ -331,6 +338,29 @@ private struct SettingsApplyBar: View {
 
 @MainActor
 private final class ConfigurationSettingsModel: ObservableObject {
+    private static let featuredThemeNames = [
+        "Catppuccin Latte",
+        "Catppuccin Macchiato",
+        "Catppuccin Mocha",
+        "TokyoNight",
+        "TokyoNight Day",
+        "Dracula",
+        "Nord",
+        "Gruvbox Dark",
+        "Gruvbox Light",
+        "Ayu Light",
+        "Ayu Mirage",
+        "Material",
+        "Material Ocean",
+        "Night Owl",
+        "GitHub Dark",
+        "Xcode Dark",
+        "Builtin Dark",
+        "Horizon",
+        "Cobalt2",
+        "Tomorrow Night",
+    ]
+
     @Published var theme = ""
     @Published var fontFamily = ""
     @Published var fontSize = 13.0
@@ -367,6 +397,14 @@ private final class ConfigurationSettingsModel: ObservableObject {
     private var loadedValues = [String: String]()
     private var loadedOptionValues = [String: String]()
     private var clearsThemePalette = false
+
+    var featuredThemes: [String] {
+        Self.featuredThemeNames.filter(availableThemes.contains)
+    }
+
+    var otherAvailableThemes: [String] {
+        availableThemes.filter { !Self.featuredThemeNames.contains($0) }
+    }
 
     func load(from app: SpectrePro.App) {
         let config = app.config
