@@ -1420,6 +1420,7 @@ struct QuickCommandsLayout<Terminal: View, Sidebar: View>: View {
     @Binding var width: CGFloat
     @ViewBuilder var terminal: () -> Terminal
     @ViewBuilder var sidebar: () -> Sidebar
+    @ObservedObject private var quickCommandsState = QuickCommandsState.shared
     @State private var dragStart: CGFloat?
     @State private var hoveringDivider = false
 
@@ -1455,14 +1456,18 @@ struct QuickCommandsLayout<Terminal: View, Sidebar: View>: View {
                         .accessibilityAdjustableAction { direction in
                             width = bounded(width + (direction == .increment ? 20 : -20), total: geometry.size.width)
                         }
-                    sidebar()
+                    let sidebarView = sidebar()
                         .frame(width: bounded(width, total: geometry.size.width))
-                        .animatedGradientBorder(
+                    if quickCommandsState.isAnimatedBorderEnabled {
+                        sidebarView.animatedGradientBorder(
                             cornerRadius: 10,
                             lineWidth: 1,
                             glowRadius: 5,
                             duration: 8
                         )
+                    } else {
+                        sidebarView
+                    }
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)

@@ -66,11 +66,17 @@ final class QuickCommandsState: ObservableObject {
     @Published var selectedGroup: String? = nil
     @Published var isBroadcast: Bool = false
     @Published var selectedIndex: Int? = nil
+    @Published var isAnimatedBorderEnabled: Bool {
+        didSet {
+            userDefaults.set(isAnimatedBorderEnabled, forKey: "co.skyones.spectrepro.animatedSidebarBorder")
+        }
+    }
 
     private init() {
         self.isShowing = userDefaults.bool(forKey: isShowingKey)
         let savedWidth = CGFloat(userDefaults.double(forKey: widthKey))
         self.width = savedWidth > 150 ? savedWidth : 320
+        self.isAnimatedBorderEnabled = userDefaults.object(forKey: "co.skyones.spectrepro.animatedSidebarBorder") as? Bool ?? true
     }
 
     func toggle() {
