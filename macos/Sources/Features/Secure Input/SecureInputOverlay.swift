@@ -44,24 +44,29 @@ public struct SpectreProOverlayBackground: View {
 
     public var body: some View {
         ZStack {
-            if !isPermanent {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(.ultraThinMaterial)
-                    .opacity(isActive ? 0.3 : 0.8)
-            }
+            if usesThinAnimatedBorder {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color(nsColor: .windowBackgroundColor).opacity(0.9))
+            } else {
+                if !isPermanent {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.ultraThinMaterial)
+                        .opacity(isActive ? 0.3 : 0.8)
+                }
 
-            Rectangle()
-                .fill(
-                    AngularGradient(
-                        gradient: Gradient(
-                            colors: [.cyan, .blue, .yellow, .blue, .cyan]
-                        ),
-                        center: .center,
-                        angle: gradientAngle
+                Rectangle()
+                    .fill(
+                        AngularGradient(
+                            gradient: Gradient(
+                                colors: [.cyan, .blue, .yellow, .blue, .cyan]
+                            ),
+                            center: .center,
+                            angle: gradientAngle
+                        )
                     )
-                )
-                .blur(radius: 4, opaque: true)
-                .opacity(isPermanent ? gradientOpacity : (isActive ? gradientOpacity : 0))
+                    .blur(radius: 4, opaque: true)
+                    .opacity(isPermanent ? gradientOpacity : (isActive ? gradientOpacity : 0))
+            }
         }
         .mask(RoundedRectangle(cornerRadius: cornerRadius))
         .overlay {
