@@ -62,6 +62,62 @@ public enum ExpectSendMatchMode: String, Codable, CaseIterable, Identifiable {
     public var title: String { self == .literal ? "Text" : "Regex" }
 }
 
+public enum SSHKeyExchangeDefaults {
+    public static let modern = "mlkem768x25519-sha256,sntrup761x25519-sha512,sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512"
+    public static let compatibility = "mlkem768x25519-sha256,sntrup761x25519-sha512,sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha256"
+}
+
+public enum SSHKeyExchangeAlgorithm: String, CaseIterable, Identifiable, Sendable {
+    case diffieHellmanGroup1SHA1 = "diffie-hellman-group1-sha1"
+    case diffieHellmanGroup14SHA1 = "diffie-hellman-group14-sha1"
+    case diffieHellmanGroup14SHA256 = "diffie-hellman-group14-sha256"
+    case diffieHellmanGroup16SHA512 = "diffie-hellman-group16-sha512"
+    case diffieHellmanGroup18SHA512 = "diffie-hellman-group18-sha512"
+    case diffieHellmanGroupExchangeSHA1 = "diffie-hellman-group-exchange-sha1"
+    case diffieHellmanGroupExchangeSHA256 = "diffie-hellman-group-exchange-sha256"
+    case ecdhSHA256 = "ecdh-sha2-nistp256"
+    case ecdhSHA384 = "ecdh-sha2-nistp384"
+    case ecdhSHA521 = "ecdh-sha2-nistp521"
+    case curve25519 = "curve25519-sha256"
+    case curve25519LibSSH = "curve25519-sha256@libssh.org"
+    case sntrup761 = "sntrup761x25519-sha512"
+    case sntrup761OpenSSH = "sntrup761x25519-sha512@openssh.com"
+    case mlkem768 = "mlkem768x25519-sha256"
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .diffieHellmanGroup1SHA1: return "Diffie-Hellman Group 1 / SHA-1"
+        case .diffieHellmanGroup14SHA1: return "Diffie-Hellman Group 14 / SHA-1"
+        case .diffieHellmanGroup14SHA256: return "Diffie-Hellman Group 14 / SHA-256"
+        case .diffieHellmanGroup16SHA512: return "Diffie-Hellman Group 16 / SHA-512"
+        case .diffieHellmanGroup18SHA512: return "Diffie-Hellman Group 18 / SHA-512"
+        case .diffieHellmanGroupExchangeSHA1: return "Diffie-Hellman Group Exchange / SHA-1"
+        case .diffieHellmanGroupExchangeSHA256: return "Diffie-Hellman Group Exchange / SHA-256"
+        case .ecdhSHA256: return "ECDH NIST P-256"
+        case .ecdhSHA384: return "ECDH NIST P-384"
+        case .ecdhSHA521: return "ECDH NIST P-521"
+        case .curve25519: return "Curve25519"
+        case .curve25519LibSSH: return "Curve25519 / libssh"
+        case .sntrup761: return "SNTRUP761 + Curve25519"
+        case .sntrup761OpenSSH: return "SNTRUP761 + Curve25519 / OpenSSH"
+        case .mlkem768: return "ML-KEM 768 + Curve25519"
+        }
+    }
+
+    public var warning: String? {
+        switch self {
+        case .diffieHellmanGroup1SHA1, .diffieHellmanGroup14SHA1, .diffieHellmanGroupExchangeSHA1:
+            return "SHA-1 is deprecated and should only be enabled for legacy servers."
+        case .diffieHellmanGroup14SHA256:
+            return "Legacy compatibility algorithm; prefer Curve25519 or ECDH when available."
+        default:
+            return nil
+        }
+    }
+}
+
 public struct ExpectSendRule: Identifiable, Codable, Equatable {
     public var id: UUID
     public var expect: String
@@ -130,6 +186,7 @@ public struct SavedSession: Identifiable, Codable, Equatable {
     public var sessionLogging: Bool
     public var expectSendRules: [ExpectSendRule]
     public var credentialReference: CredentialReference?
+    public var kexAlgorithms: String?
 
     public init(
         id: UUID = UUID(),
@@ -151,7 +208,8 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         portForwards: [PortForwardRule] = [],
         sessionLogging: Bool = false,
         expectSendRules: [ExpectSendRule] = [],
-        credentialReference: CredentialReference? = nil
+        credentialReference: CredentialReference? = nil,
+        kexAlgorithms: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -173,6 +231,7 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         self.sessionLogging = sessionLogging
         self.expectSendRules = expectSendRules
         self.credentialReference = credentialReference
+        self.kexAlgorithms = kexAlgorithms
     }
 
     // Custom Decodable for graceful backwards compatibility with older sessions.json
@@ -199,6 +258,7 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         self.sessionLogging = try container.decodeIfPresent(Bool.self, forKey: .sessionLogging) ?? false
         self.expectSendRules = try container.decodeIfPresent([ExpectSendRule].self, forKey: .expectSendRules) ?? []
         self.credentialReference = try container.decodeIfPresent(CredentialReference.self, forKey: .credentialReference)
+        self.kexAlgorithms = try container.decodeIfPresent(String.self, forKey: .kexAlgorithms)
     }
 
     public func buildProcessSpec() throws -> SSHProcessSpec {
@@ -222,6 +282,9 @@ public struct SavedSession: Identifiable, Codable, Equatable {
                 "-o", "ControlPath=/tmp/spectre-ssh-%C.sock",
                 "-o", "ControlPersist=10m"
             ]
+            if let kexAlgorithms, !kexAlgorithms.isEmpty {
+                arguments += ["-o", "KexAlgorithms=\(kexAlgorithms)"]
+            }
             if let port, port != 22 { arguments += ["-p", "\(port)"] }
             if sshAuthentication == .yubikeyPIV,
                let provider = pkcs11Provider?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -264,6 +327,10 @@ public struct SavedSession: Identifiable, Codable, Equatable {
             parts.append("-o ControlMaster=auto")
             parts.append("-o ControlPath=/tmp/spectre-ssh-%C.sock")
             parts.append("-o ControlPersist=10m")
+
+            if let kexAlgorithms, !kexAlgorithms.isEmpty {
+                parts.append("-o KexAlgorithms=\(kexAlgorithms)")
+            }
 
             if let p = port, p != 22 {
                 parts.append("-p \(p)")
@@ -981,6 +1048,7 @@ private struct SessionEditorModal: View {
     @State private var initialCommand: String = ""
     @State private var keepAliveInterval: String = ""
     @State private var compression: Bool = false
+    @State private var kexAlgorithms: String = ""
     @State private var sessionLogging: Bool = false
     @State private var expectSendRules: [ExpectSendRule] = []
 
@@ -1443,6 +1511,60 @@ private struct SessionEditorModal: View {
                 }
             }
 
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text("KEY EXCHANGE ALGORITHMS")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Menu("Presets") {
+                        Button("OpenSSH defaults") { kexAlgorithms = "" }
+                        Button("Modern") { kexAlgorithms = SSHKeyExchangeDefaults.modern }
+                        Button("Compatibility") { kexAlgorithms = SSHKeyExchangeDefaults.compatibility }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .font(.system(size: 10))
+                }
+                Text("Select the algorithms this session may negotiate. Leave all unchecked to use OpenSSH defaults.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+
+                VStack(spacing: 0) {
+                    ForEach(SSHKeyExchangeAlgorithm.allCases) { algorithm in
+                        HStack(spacing: 8) {
+                            Toggle("", isOn: kexBinding(for: algorithm))
+                                .labelsHidden()
+                                .toggleStyle(.checkbox)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(algorithm.title)
+                                    .font(.system(size: 11, weight: .medium))
+                                Text(algorithm.rawValue)
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if let warning = algorithm.warning {
+                                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.orange)
+                                    .help(warning)
+                            } else {
+                                Label("Recommended", systemImage: "checkmark.shield.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                        .padding(.vertical, 5)
+                        if algorithm != .mlkem768 {
+                            Divider()
+                        }
+                    }
+                }
+                .padding(.horizontal, 8)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
             Divider()
 
             HStack {
@@ -1555,6 +1677,30 @@ private struct SessionEditorModal: View {
 
     // MARK: - Helpers
 
+    private func kexBinding(for algorithm: SSHKeyExchangeAlgorithm) -> Binding<Bool> {
+        Binding(
+            get: {
+                selectedKexAlgorithms.contains(algorithm.rawValue)
+            },
+            set: { isSelected in
+                var selected = selectedKexAlgorithms
+                if isSelected {
+                    selected.insert(algorithm.rawValue)
+                } else {
+                    selected.remove(algorithm.rawValue)
+                }
+                kexAlgorithms = SSHKeyExchangeAlgorithm.allCases
+                    .map(\.rawValue)
+                    .filter { selected.contains($0) }
+                    .joined(separator: ",")
+            }
+        )
+    }
+
+    private var selectedKexAlgorithms: Set<String> {
+        Set(kexAlgorithms.split(separator: ",").map(String.init))
+    }
+
     private func loadInitialData() {
         discoveredKeys = SessionLibrary.availableSSHKeys()
 
@@ -1577,6 +1723,7 @@ private struct SessionEditorModal: View {
                 keepAliveInterval = "\(keepAlive)"
             }
             compression = s.compression
+            kexAlgorithms = s.kexAlgorithms ?? ""
             sessionLogging = s.sessionLogging
             expectSendRules = s.expectSendRules
             storeCredential = s.credentialReference != nil
@@ -1664,7 +1811,8 @@ private struct SessionEditorModal: View {
             portForwards: portForwards,
             sessionLogging: sessionLogging,
             expectSendRules: expectSendRules,
-            credentialReference: credentialReference
+            credentialReference: credentialReference,
+            kexAlgorithms: kexAlgorithms.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : kexAlgorithms.trimmingCharacters(in: .whitespacesAndNewlines)
         )
 
         onSave(s)

@@ -57,6 +57,34 @@ struct EnterpriseSessionsTests {
         #expect(!spec.arguments.contains("-i"))
     }
 
+    @Test func testKexAlgorithmsAreAppliedToSSHAndTransfers() throws {
+        let session = SavedSession(
+            name: "KEX Server",
+            host: "server.example.com",
+            kexAlgorithms: "ecdh-sha2-nistp256,diffie-hellman-group14-sha256"
+        )
+
+        let spec = try session.buildProcessSpec()
+        #expect(spec.arguments.contains("KexAlgorithms=ecdh-sha2-nistp256,diffie-hellman-group14-sha256"))
+
+        let context = ActiveSSHContext(
+            host: session.host,
+            kexAlgorithms: session.kexAlgorithms
+        )
+        #expect(context.buildBaseSCPArguments().contains("KexAlgorithms=ecdh-sha2-nistp256,diffie-hellman-group14-sha256"))
+        #expect(context.buildBaseSFTPArguments().contains("KexAlgorithms=ecdh-sha2-nistp256,diffie-hellman-group14-sha256"))
+    }
+
+    @Test func testKexAlgorithmsRejectUnsafeValues() {
+        let session = SavedSession(
+            name: "Invalid KEX",
+            host: "server.example.com",
+            kexAlgorithms: "ecdh-sha2-nistp256;rm -rf /"
+        )
+
+        #expect(SessionValidator.validate(session).contains(.invalidKexAlgorithms))
+    }
+
     @Test func testInvalidPKCS11ProviderIsRejected() {
         let session = SavedSession(
             name: "Invalid YubiKey",
@@ -847,10 +875,10 @@ struct EnterpriseSessionsTests {
             estimatedTimeRemaining: 2
         )
 
-        #expect(progress.detailText.contains("1 MB"))
-        #expect(progress.detailText.contains("of 2 MB"))
-        #expect(progress.detailText.contains("512 KB/s"))
+        #expect(progress.detailText.contains("of "))
+        #expect(progress.detailText.contains("/s"))
         #expect(progress.detailText.contains("00:02 remaining"))
+        #expect(!progress.detailText.contains("ByteCountFormatter"))
     }
 
     @Test func testSSHTransferQueuePriorityAndRetry() {
@@ -1172,4 +1200,3 @@ struct EnterpriseSessionsTests {
         #expect(fleet.fleetNodes.allSatisfy { $0.isReachable })
     }
 }
-

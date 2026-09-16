@@ -108,6 +108,7 @@ public struct ActiveSSHContext: Equatable {
     public var port: Int?
     public var identityFile: String?
     public var sshAuthentication: SSHAuthenticationMethod
+    public var kexAlgorithms: String?
     public var pkcs11Provider: String?
     public var sshExecutable: String
     public var jumpHost: String?
@@ -120,13 +121,15 @@ public struct ActiveSSHContext: Equatable {
         identityFile: String? = nil,
         sshAuthentication: SSHAuthenticationMethod = .automatic,
         pkcs11Provider: String? = nil,
-        jumpHost: String? = nil
+        jumpHost: String? = nil,
+        kexAlgorithms: String? = nil
     ) {
         self.host = host
         self.user = user
         self.port = port
         self.identityFile = identityFile
         self.sshAuthentication = sshAuthentication
+        self.kexAlgorithms = kexAlgorithms
         self.pkcs11Provider = pkcs11Provider
         self.sshExecutable = YubiKeyDetector.sshExecutable(for: sshAuthentication)
         self.jumpHost = jumpHost
@@ -154,7 +157,7 @@ public struct ActiveSSHContext: Equatable {
     }
 
     public var connectionOptions: [String] {
-        [
+        var options = [
             "-o", "StrictHostKeyChecking=ask",
             "-o", "UserKnownHostsFile=\(("~/.ssh/known_hosts" as NSString).expandingTildeInPath)",
             "-o", "ServerAliveInterval=15",
@@ -162,6 +165,10 @@ public struct ActiveSSHContext: Equatable {
             "-o", "ConnectionAttempts=3",
             "-o", "ConnectTimeout=10"
         ]
+        if let kexAlgorithms, !kexAlgorithms.isEmpty {
+            options += ["-o", "KexAlgorithms=\(kexAlgorithms)"]
+        }
+        return options
     }
 
     public func buildBaseSCPArguments() -> [String] {
@@ -332,7 +339,8 @@ public final class SSHTransferManager: ObservableObject {
             identityFile: session.identityFile,
             sshAuthentication: session.sshAuthentication,
             pkcs11Provider: session.pkcs11Provider,
-            jumpHost: session.jumpHost
+            jumpHost: session.jumpHost,
+            kexAlgorithms: session.kexAlgorithms
         )
         contexts[surfaceId] = ctx
     }
