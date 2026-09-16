@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 private final class QuickCommandsKeyMonitor: ObservableObject {
     private var monitor: Any?
@@ -474,8 +475,20 @@ struct QuickCommandsView: View {
         .onChange(of: parameterizing) { keyMonitor.isModalPresented = (editing != nil || $0 != nil || isCreatingGroup) }
         .onChange(of: isCreatingGroup) { keyMonitor.isModalPresented = (editing != nil || parameterizing != nil || $0 || renamingGroup != nil) }
         .onChange(of: renamingGroup?.name) { keyMonitor.isModalPresented = (editing != nil || parameterizing != nil || isCreatingGroup || $0 != nil) }
-        .sheet(item: $editing) { command in
-            QuickCommandEditor(command: command, existingGroups: allGroups, library: library)
+        .overlay {
+            if let command = editing {
+                QuickCommandEditor(
+                    command: command,
+                    existingGroups: allGroups,
+                    library: library,
+                    onCancel: { editing = nil },
+                    onSave: { editing = nil }
+                )
+                .padding(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color(nsColor: .windowBackgroundColor))
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
         }
         .sheet(isPresented: $isCreatingGroup) {
             QuickGroupCreationModal(library: library) { newGroup in
@@ -1312,16 +1325,35 @@ private struct QuickCommandEditor: View {
     @State var command: QuickCommand
     let existingGroups: [String]
     @ObservedObject var library: QuickCommandLibrary
-    @Environment(\.dismiss) private var dismiss
+    let onCancel: () -> Void
+    let onSave: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(command.title.isEmpty ? "New Quick Command" : "Edit Quick Command")
-                .font(.headline)
+            HStack {
+                Text(command.title.isEmpty ? "New Quick Command" : "Edit Quick Command")
+                    .font(.headline)
+                Spacer()
+                Button(action: onCancel) {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Close editor")
+            }
 
             TextField("Name", text: $command.title)
             TextField("Command (supports <var>, {clipboard}, {selection})", text: $command.command)
                 .font(.system(.body, design: .monospaced))
+                .onPasteCommand(of: [.text]) { providers in
+                    guard let provider = providers.first else { return }
+                    provider.loadObject(ofClass: String.self) { value, _ in
+                        guard let value else { return }
+                        DispatchQueue.main.async {
+                            command.command = value.trimmingCharacters(in: .newlines)
+                        }
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Group (optional):")
@@ -1359,17 +1391,25 @@ private struct QuickCommandEditor: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
                 Button("Save") {
-                    if library.save(command) { dismiss() }
+                    if library.save(command) { onSave() }
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(command.validationError != nil || !library.canWrite)
             }
         }
         .padding(20)
-        .frame(width: 420)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+        }
+        .onExitCommand(perform: onCancel)
     }
 }
 
@@ -1415,7 +1455,14 @@ struct QuickCommandsLayout<Terminal: View, Sidebar: View>: View {
                         .accessibilityAdjustableAction { direction in
                             width = bounded(width + (direction == .increment ? 20 : -20), total: geometry.size.width)
                         }
-                    sidebar().frame(width: bounded(width, total: geometry.size.width))
+                    sidebar()
+                        .frame(width: bounded(width, total: geometry.size.width))
+                        .animatedGradientBorder(
+                            cornerRadius: 10,
+                            lineWidth: 1,
+                            glowRadius: 5,
+                            duration: 8
+                        )
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)

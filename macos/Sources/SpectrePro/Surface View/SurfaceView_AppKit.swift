@@ -1331,7 +1331,7 @@ extension SpectrePro {
             // Besides C-/, its important we don't process key equivalents if unfocused
             // because there are other event listeners for that (i.e. AppDelegate's
             // local event handler).
-            if !focused {
+            guard focused, window?.firstResponder === self else {
                 return false
             }
 
