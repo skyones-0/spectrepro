@@ -148,7 +148,7 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(15))
                 guard let self else { return }
-                let current = await YubiKeyDetector.detect(forceRefresh: true)
+                let current = await YubiKeyDetector.detect()
                 self.detection = current
                 if current.pivPublicKeys.isEmpty {
                     self.state = .failed(YubiKeyAuthenticationError.tokenRemoved.localizedDescription)

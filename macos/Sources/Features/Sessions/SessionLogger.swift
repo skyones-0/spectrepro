@@ -136,19 +136,9 @@ public final class SessionLogger: ObservableObject {
             return
         }
 
-        // Find maximal suffix of lastScreenLines matching a prefix of currentLines
-        var matchLen: Int? = nil
-        let maxLookback = min(lastScreenLines.count, currentLines.count)
-        for len in stride(from: maxLookback, through: 1, by: -1) {
-            let lastSlice = lastScreenLines.suffix(len)
-            let currentSlice = currentLines.prefix(len)
-            if lastSlice.elementsEqual(currentSlice) {
-                matchLen = len
-                break
-            }
-        }
+        let matchLen = suffixPrefixOverlap(previous: lastScreenLines, current: currentLines)
 
-        if let matchLen = matchLen {
+        if matchLen > 0 {
             let newLines = Array(currentLines.dropFirst(matchLen))
             if !newLines.isEmpty {
                 let delta = newLines.joined(separator: "\n")
@@ -172,6 +162,28 @@ public final class SessionLogger: ObservableObject {
             }
         }
         lastScreenLines = currentLines
+    }
+
+    private func suffixPrefixOverlap(previous: [String], current: [String]) -> Int {
+        let limit = min(previous.count, current.count)
+        guard limit > 0 else { return 0 }
+
+        let separator = "\u{0}"
+        let sequence = Array(current.prefix(limit)) + [separator] + Array(previous.suffix(limit))
+        var prefixLengths = Array(repeating: 0, count: sequence.count)
+
+        for index in 1..<sequence.count {
+            var candidate = prefixLengths[index - 1]
+            while candidate > 0 && sequence[index] != sequence[candidate] {
+                candidate = prefixLengths[candidate - 1]
+            }
+            if sequence[index] == sequence[candidate] {
+                candidate += 1
+            }
+            prefixLengths[index] = candidate
+        }
+
+        return min(prefixLengths.last ?? 0, limit)
     }
 
     public func stopRecording() -> URL? {

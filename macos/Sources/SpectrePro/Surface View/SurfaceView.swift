@@ -240,7 +240,8 @@ extension SpectrePro {
                     }
                 }
             }
-            .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+            .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
+                guard sessionLogger.isRecording || (isFocusedSurface && windowFocus) else { return }
                 if sessionLogger.isRecording {
                     let screenText = surfaceView.readScreenText()
                     sessionLogger.ingestScreenText(screenText)
