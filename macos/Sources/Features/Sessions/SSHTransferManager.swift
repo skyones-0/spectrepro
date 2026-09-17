@@ -110,6 +110,8 @@ public struct ActiveSSHContext: Equatable {
     public var sshAuthentication: SSHAuthenticationMethod
     public var kexAlgorithms: String?
     public var pkcs11Provider: String?
+    public var pkcs11Certificate: String?
+    public var pkcs11IdentitiesOnly: Bool
     public var identityAgentPath: String?
     public var sshExecutable: String
     public var jumpHost: String?
@@ -122,6 +124,8 @@ public struct ActiveSSHContext: Equatable {
         identityFile: String? = nil,
         sshAuthentication: SSHAuthenticationMethod = .automatic,
         pkcs11Provider: String? = nil,
+        pkcs11Certificate: String? = nil,
+        pkcs11IdentitiesOnly: Bool = true,
         identityAgentPath: String? = nil,
         jumpHost: String? = nil,
         kexAlgorithms: String? = nil
@@ -133,6 +137,8 @@ public struct ActiveSSHContext: Equatable {
         self.sshAuthentication = sshAuthentication
         self.kexAlgorithms = kexAlgorithms
         self.pkcs11Provider = pkcs11Provider
+        self.pkcs11Certificate = pkcs11Certificate
+        self.pkcs11IdentitiesOnly = pkcs11IdentitiesOnly
         self.identityAgentPath = identityAgentPath
         self.sshExecutable = YubiKeyDetector.sshExecutable(for: sshAuthentication)
         self.jumpHost = jumpHost
@@ -192,6 +198,7 @@ public struct ActiveSSHContext: Equatable {
             let expanded = (key as NSString).expandingTildeInPath
             args += ["-i", expanded]
         }
+        appendPKCS11Options(to: &args)
         if let jump = jumpHost, !jump.isEmpty {
             args += ["-J", jump]
         }
@@ -212,9 +219,21 @@ public struct ActiveSSHContext: Equatable {
         } else if let key = identityFile, !key.isEmpty {
             args += ["-i", (key as NSString).expandingTildeInPath]
         }
+        appendPKCS11Options(to: &args)
         if let jump = jumpHost, !jump.isEmpty { args += ["-o", "ProxyJump=\(jump)"] }
         args.append(targetSpec)
         return args
+    }
+
+    private func appendPKCS11Options(to args: inout [String]) {
+        guard sshAuthentication == .yubikeyPIV else { return }
+        let usesExternalPKCS11Provider = identityAgentPath == nil || identityAgentPath?.isEmpty == true
+        if usesExternalPKCS11Provider && pkcs11IdentitiesOnly {
+            args += ["-o", "IdentitiesOnly=yes"]
+        }
+        if let certificate = pkcs11Certificate?.trimmingCharacters(in: .whitespacesAndNewlines), !certificate.isEmpty {
+            args += ["-o", "CertificateFile=\((certificate as NSString).expandingTildeInPath)"]
+        }
     }
 
     public static func escapeRemotePath(_ path: String) -> String {
@@ -346,6 +365,8 @@ public final class SSHTransferManager: ObservableObject {
             identityFile: session.identityFile,
             sshAuthentication: session.sshAuthentication,
             pkcs11Provider: session.pkcs11Provider,
+            pkcs11Certificate: session.pkcs11Certificate,
+            pkcs11IdentitiesOnly: session.pkcs11IdentitiesOnly,
             identityAgentPath: SessionRuntimeRegistry.shared.runtime(for: surfaceId).yubikey.identityAgentPath,
             jumpHost: session.jumpHost,
             kexAlgorithms: session.kexAlgorithms

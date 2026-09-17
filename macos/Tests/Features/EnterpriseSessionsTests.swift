@@ -72,6 +72,22 @@ struct EnterpriseSessionsTests {
         #expect(!spec.shellCommand.contains("PKCS11Provider"))
     }
 
+    @Test func testPIVHelperDoesNotForceExternalProviderOptions() throws {
+        let session = SavedSession(
+            name: "YubiKey Helper Server",
+            host: "server.example.com",
+            sshAuthentication: .yubikeyPIV,
+            pkcs11Provider: "/opt/homebrew/lib/libykcs11.dylib",
+            pkcs11IdentitiesOnly: true
+        )
+
+        let spec = try session.buildProcessSpec(identityAgentPath: "/tmp/spectrepro-agent.sock")
+
+        #expect(spec.arguments.contains("IdentityAgent=/tmp/spectrepro-agent.sock"))
+        #expect(!spec.arguments.contains("IdentitiesOnly=yes"))
+        #expect(!spec.arguments.contains("-I"))
+    }
+
     @Test func testSessionRuntimeOwnsIndependentYubiKeyCoordinators() {
         let first = SessionRuntimeRegistry.shared.runtime(for: UUID())
         let second = SessionRuntimeRegistry.shared.runtime(for: UUID())

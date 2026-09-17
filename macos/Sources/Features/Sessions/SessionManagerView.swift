@@ -176,6 +176,8 @@ public struct SavedSession: Identifiable, Codable, Equatable {
     public var sshAuthentication: SSHAuthenticationMethod
     public var identityFile: String?
     public var pkcs11Provider: String?
+    public var pkcs11Certificate: String?
+    public var pkcs11IdentitiesOnly: Bool
     public var jumpHost: String?
     public var forwardAgent: Bool
     public var compression: Bool
@@ -199,6 +201,8 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         sshAuthentication: SSHAuthenticationMethod = .automatic,
         identityFile: String? = nil,
         pkcs11Provider: String? = nil,
+        pkcs11Certificate: String? = nil,
+        pkcs11IdentitiesOnly: Bool = true,
         jumpHost: String? = nil,
         forwardAgent: Bool = false,
         compression: Bool = false,
@@ -221,6 +225,8 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         self.sshAuthentication = sshAuthentication
         self.identityFile = identityFile
         self.pkcs11Provider = pkcs11Provider
+        self.pkcs11Certificate = pkcs11Certificate
+        self.pkcs11IdentitiesOnly = pkcs11IdentitiesOnly
         self.jumpHost = jumpHost
         self.forwardAgent = forwardAgent
         self.compression = compression
@@ -248,6 +254,8 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         self.sshAuthentication = try container.decodeIfPresent(SSHAuthenticationMethod.self, forKey: .sshAuthentication) ?? .automatic
         self.identityFile = try container.decodeIfPresent(String.self, forKey: .identityFile)
         self.pkcs11Provider = try container.decodeIfPresent(String.self, forKey: .pkcs11Provider)
+        self.pkcs11Certificate = try container.decodeIfPresent(String.self, forKey: .pkcs11Certificate)
+        self.pkcs11IdentitiesOnly = try container.decodeIfPresent(Bool.self, forKey: .pkcs11IdentitiesOnly) ?? true
         self.jumpHost = try container.decodeIfPresent(String.self, forKey: .jumpHost)
         self.forwardAgent = try container.decodeIfPresent(Bool.self, forKey: .forwardAgent) ?? false
         self.compression = try container.decodeIfPresent(Bool.self, forKey: .compression) ?? false
@@ -294,6 +302,16 @@ public struct SavedSession: Identifiable, Codable, Equatable {
                 arguments += ["-I", (provider as NSString).expandingTildeInPath]
             } else if let key = identityFile, !key.trimmingCharacters(in: .whitespaces).isEmpty {
                 arguments += ["-i", (key as NSString).expandingTildeInPath]
+            }
+            if sshAuthentication == .yubikeyPIV {
+                let usesExternalPKCS11Provider = identityAgentPath == nil || identityAgentPath?.isEmpty == true
+                    && pkcs11Provider?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                if usesExternalPKCS11Provider && pkcs11IdentitiesOnly {
+                    arguments += ["-o", "IdentitiesOnly=yes"]
+                }
+                if let certificate = pkcs11Certificate?.trimmingCharacters(in: .whitespacesAndNewlines), !certificate.isEmpty {
+                    arguments += ["-o", "CertificateFile=\((certificate as NSString).expandingTildeInPath)"]
+                }
             }
             if let jump = jumpHost, !jump.trimmingCharacters(in: .whitespaces).isEmpty { arguments += ["-J", jump] }
             if forwardAgent { arguments.append("-A") }
@@ -347,6 +365,14 @@ public struct SavedSession: Identifiable, Codable, Equatable {
             } else if let key = identityFile, !key.trimmingCharacters(in: .whitespaces).isEmpty {
                 let expanded = (key as NSString).expandingTildeInPath
                 parts.append("-i \"\(expanded)\"")
+            }
+
+            if sshAuthentication == .yubikeyPIV {
+                if pkcs11IdentitiesOnly { parts.append("-o IdentitiesOnly=yes") }
+                if let certificate = pkcs11Certificate?.trimmingCharacters(in: .whitespacesAndNewlines), !certificate.isEmpty {
+                    let expanded = (certificate as NSString).expandingTildeInPath
+                    parts.append("-o CertificateFile=\"\(expanded)\"")
+                }
             }
 
             if let jump = jumpHost, !jump.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -1082,6 +1108,8 @@ private struct SessionEditorModal: View {
     @State private var sshAuthentication: SSHAuthenticationMethod = .automatic
     @State private var identityFile: String = ""
     @State private var pkcs11Provider: String = ""
+    @State private var pkcs11Certificate: String = ""
+    @State private var pkcs11IdentitiesOnly: Bool = true
     @State private var yubiKeyStatus: String?
     @State private var yubiKeyPublicKeys: [String] = []
     @State private var isDetectingYubiKey = false
@@ -1311,21 +1339,50 @@ private struct SessionEditorModal: View {
                 .labelsHidden()
 
                 if sshAuthentication == .yubikeyPIV {
-                    HStack {
-                        TextField("PKCS#11 library path", text: $pkcs11Provider)
-                            .textFieldStyle(.roundedBorder)
-                        Button {
-                            detectYubiKey()
-                        } label: {
-                            Label("Detect", systemImage: "externaldrive.badge.checkmark")
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Label("PIV / PKCS#11 provider", systemImage: "key.fill")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Spacer()
+                                Button {
+                                    detectYubiKey()
+                                } label: {
+                                    Label("Detect", systemImage: "arrow.clockwise")
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .disabled(isDetectingYubiKey)
+                            }
+
+                            TextField("/opt/homebrew/lib/libykcs11.dylib", text: $pkcs11Provider)
+                                .textFieldStyle(.roundedBorder)
+
+                            if !yubiKeyPublicKeys.isEmpty {
+                                Picker("Identity exposed by token", selection: .constant(yubiKeyPublicKeys.first ?? "")) {
+                                    ForEach(yubiKeyPublicKeys, id: \.self) { key in
+                                        Text(key).tag(key)
+                                    }
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                            }
+
+                            Toggle("Use only identities from this provider", isOn: $pkcs11IdentitiesOnly)
+                                .toggleStyle(.checkbox)
+
+                            HStack {
+                                TextField("Optional OpenSSH certificate file", text: $pkcs11Certificate)
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Browse…") { selectCertificateFile() }
+                                    .controlSize(.small)
+                            }
+
+                            Label("Spectre Pro requests the PIN in its sidebar and never stores it.", systemImage: "lock.shield")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(isDetectingYubiKey)
                     }
-                    Text("The PIN is requested by OpenSSH and is never stored by Spectre Pro.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
                     if !yubiKeyPublicKeys.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("PIV keys exposed by YubiKey")
@@ -1765,6 +1822,8 @@ private struct SessionEditorModal: View {
             identityFile = s.identityFile ?? ""
             sshAuthentication = s.sshAuthentication
             pkcs11Provider = s.pkcs11Provider ?? ""
+            pkcs11Certificate = s.pkcs11Certificate ?? ""
+            pkcs11IdentitiesOnly = s.pkcs11IdentitiesOnly
             forwardAgent = s.forwardAgent
             jumpHost = s.jumpHost ?? ""
             portForwards = s.portForwards
@@ -1816,6 +1875,17 @@ private struct SessionEditorModal: View {
         }
     }
 
+    private func selectCertificateFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            pkcs11Certificate = url.path.hasPrefix(home) ? url.path.replacingOccurrences(of: home, with: "~") : url.path
+        }
+    }
+
     private func saveSession() {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let trimmedHost = host.trimmingCharacters(in: .whitespaces)
@@ -1852,6 +1922,8 @@ private struct SessionEditorModal: View {
             sshAuthentication: sshAuthentication,
             identityFile: identityFile.trimmingCharacters(in: .whitespaces).isEmpty ? nil : identityFile.trimmingCharacters(in: .whitespaces),
             pkcs11Provider: pkcs11Provider.trimmingCharacters(in: .whitespaces).isEmpty ? nil : pkcs11Provider.trimmingCharacters(in: .whitespaces),
+            pkcs11Certificate: pkcs11Certificate.trimmingCharacters(in: .whitespaces).isEmpty ? nil : pkcs11Certificate.trimmingCharacters(in: .whitespaces),
+            pkcs11IdentitiesOnly: pkcs11IdentitiesOnly,
             jumpHost: jumpHost.trimmingCharacters(in: .whitespaces).isEmpty ? nil : jumpHost.trimmingCharacters(in: .whitespaces),
             forwardAgent: forwardAgent,
             compression: compression,
