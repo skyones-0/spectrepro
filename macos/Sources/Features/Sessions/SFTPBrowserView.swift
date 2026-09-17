@@ -69,7 +69,9 @@ public struct SFTPBrowserView: View {
 
             if let progress = client.progress {
                 VStack(alignment: .leading, spacing: 6) {
-                    SFTPTransferGraphView(progress: progress)
+                    if client.isLoading {
+                        SFTPTransferGraphView(progress: progress)
+                    }
                     HStack(spacing: 8) {
                         Image(systemName: progress.isUpload ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
                             .foregroundStyle(progress.isUpload ? .cyan : .green)
