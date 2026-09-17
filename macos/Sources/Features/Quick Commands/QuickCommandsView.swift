@@ -1390,6 +1390,22 @@ private struct QuickCommandEditor: View {
     @ObservedObject var library: QuickCommandLibrary
     let onCancel: () -> Void
     let onSave: () -> Void
+    @State private var pasteboardText: String?
+
+    private var canPasteCommand: Bool {
+        guard let pasteboardText else { return false }
+        return !pasteboardText.isEmpty
+    }
+
+    private func refreshPasteboard() {
+        pasteboardText = NSPasteboard.general.string(forType: .string)
+    }
+
+    private func pasteCommand() {
+        guard let value = NSPasteboard.general.string(forType: .string) else { return }
+        command.command = value.trimmingCharacters(in: .newlines)
+        pasteboardText = value
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1406,12 +1422,21 @@ private struct QuickCommandEditor: View {
             }
 
             TextField("Name", text: $command.title)
-            TextField("Command (supports <var>, {clipboard}, {selection})", text: $command.command)
-                .font(.system(.body, design: .monospaced))
-                .onPasteCommand(of: [.text]) { _ in
-                    guard let value = NSPasteboard.general.string(forType: .string) else { return }
-                    command.command = value.trimmingCharacters(in: .newlines)
+            HStack(spacing: 8) {
+                TextField("Command (supports <var>, {clipboard}, {selection})", text: $command.command)
+                    .font(.system(.body, design: .monospaced))
+
+                Button("Paste", systemImage: "doc.on.clipboard") {
+                    pasteCommand()
                 }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .disabled(!canPasteCommand)
+                .help("Paste command from clipboard")
+            }
+            .onPasteCommand(of: [.text]) { _ in
+                pasteCommand()
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Group (optional):")
@@ -1468,6 +1493,12 @@ private struct QuickCommandEditor: View {
                 .stroke(Color.primary.opacity(0.12), lineWidth: 1)
         }
         .onExitCommand(perform: onCancel)
+        .onAppear {
+            refreshPasteboard()
+        }
+        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+            refreshPasteboard()
+        }
     }
 }
 
