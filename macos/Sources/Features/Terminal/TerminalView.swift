@@ -39,6 +39,9 @@ protocol TerminalViewModel: ObservableObject {
     var quickCommandsIsShowing: Bool { get set }
     var quickCommandsWidth: CGFloat { get set }
 
+    /// Quick Terminal is an ephemeral surface and does not host the command sidebar.
+    var isQuickTerminal: Bool { get }
+
     /// The update overlay should be visible.
     var updateOverlayIsVisible: Bool { get }
 }
@@ -86,7 +89,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         case .ready:
             ZStack {
                 QuickCommandsLayout(
-                    isShowing: $quickCommandsState.isShowing,
+                    isShowing: viewModel.isQuickTerminal
+                        ? .constant(false)
+                        : $quickCommandsState.isShowing,
                     width: $quickCommandsState.width
                 ) {
                     ZStack(alignment: .bottomTrailing) {

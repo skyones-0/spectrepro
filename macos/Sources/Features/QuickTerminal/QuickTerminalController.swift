@@ -7,6 +7,8 @@ import SpectreProKit
 class QuickTerminalController: BaseTerminalController {
     override var windowNibName: NSNib.Name? { "QuickTerminal" }
 
+    override var isQuickTerminal: Bool { true }
+
     /// The position for the quick terminal.
     let position: QuickTerminalPosition
 

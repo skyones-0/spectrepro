@@ -60,6 +60,10 @@ extension SpectrePro {
             sessionRuntime.session?.sessionType.lowercased() == "ssh"
         }
 
+        private var isQuickTerminal: Bool {
+            surfaceView.window?.windowController is QuickTerminalController
+        }
+
         private var isFocusedSurface: Bool {
             if surfaceView.focused { return true }
             if surfaceFocus { return true }
@@ -264,7 +268,7 @@ extension SpectrePro {
                     SecureInputOverlay()
                 }
 
-                if isFocusedSurface && windowFocus {
+                if !isQuickTerminal && isFocusedSurface && windowFocus {
                     SidebarToggleOverlay(
                         isShowing: QuickCommandsState.shared.isShowing,
                         onToggle: {

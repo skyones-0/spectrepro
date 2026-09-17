@@ -64,6 +64,8 @@ class BaseTerminalController: NSWindowController,
         set { QuickCommandsState.shared.width = newValue }
     }
 
+    var isQuickTerminal: Bool { false }
+
     /// Set if the terminal view should show the update overlay.
     @Published var updateOverlayIsVisible: Bool = false
 
