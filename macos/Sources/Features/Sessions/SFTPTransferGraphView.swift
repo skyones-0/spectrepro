@@ -39,7 +39,7 @@ struct SFTPTransferGraphView: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { timeline in
             Canvas { context, size in
                 let activeColor = progress.isUpload ? Color.cyan : Color.green
                 let inactiveColor = progress.isUpload ? Color.green : Color.cyan

@@ -99,7 +99,13 @@ final class TerminalProcessMonitor: ObservableObject {
     }
 
     let portDetector = LocalPortDetector()
-    var isFocused: Bool = true
+    var isFocused: Bool = true {
+        didSet {
+            if isFocused && !oldValue {
+                refresh()
+            }
+        }
+    }
     private var previousForegroundPid: Int32?
     private var foregroundStartTime: Date?
     private var foregroundCommandName: String?
@@ -183,6 +189,7 @@ final class TerminalProcessMonitor: ObservableObject {
     }
 
     func refresh() {
+        guard isFocused else { return }
         guard let model = surfaceView?.surfaceModel,
               let ttyName = model.ttyName,
               !ttyName.isEmpty else {
