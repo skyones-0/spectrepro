@@ -616,13 +616,13 @@ extension SpectrePro {
         }
 
         var quickTerminalSpaceBehavior: QuickTerminalSpaceBehavior {
-            guard let config = self.config else { return .move }
+            guard let config = self.config else { return .remain }
             var v: UnsafePointer<Int8>?
             let key = "quick-terminal-space-behavior"
-            guard spectrepro_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8))) else { return .move }
-            guard let ptr = v else { return .move }
+            guard spectrepro_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8))) else { return .remain }
+            guard let ptr = v else { return .remain }
             let str = String(cString: ptr)
-            return QuickTerminalSpaceBehavior(fromSpectreProConfig: str) ?? .move
+            return QuickTerminalSpaceBehavior(fromSpectreProConfig: str) ?? .remain
         }
 
         var quickTerminalSize: QuickTerminalSize {
