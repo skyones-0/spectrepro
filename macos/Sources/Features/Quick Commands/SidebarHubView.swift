@@ -12,6 +12,7 @@ public struct SidebarHubView: View {
     @ObservedObject private var serialWatcher = SerialDeviceWatcher.shared
     @ObservedObject private var taskManager = BackgroundTaskManager.shared
     @ObservedObject private var sessionRuntime: RemoteSessionRuntime
+    @ObservedObject private var yubikey: YubiKeyAuthenticationCoordinator
 
     @State private var hoveredTab: SidebarTab? = nil
 
@@ -27,9 +28,10 @@ public struct SidebarHubView: View {
         self.send = send
         self.splitAndSend = splitAndSend
         self.onPerformAction = onPerformAction
-        self._sessionRuntime = ObservedObject(
-            wrappedValue: surface.map { SessionRuntimeRegistry.shared.runtime(for: $0.id) }
-                ?? RemoteSessionRuntime(surfaceID: UUID()))
+        let runtime = surface.map { SessionRuntimeRegistry.shared.runtime(for: $0.id) }
+            ?? RemoteSessionRuntime(surfaceID: UUID())
+        self._sessionRuntime = ObservedObject(wrappedValue: runtime)
+        self._yubikey = ObservedObject(wrappedValue: runtime.yubikey)
     }
 
     public var body: some View {

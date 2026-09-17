@@ -39,6 +39,7 @@ extension SpectrePro {
 
         // Per-surface YubiKey authentication state
         @ObservedObject private var sessionRuntimeObserved: RemoteSessionRuntime
+        @ObservedObject private var yubikeyObserved: YubiKeyAuthenticationCoordinator
 
         // Ephemeral HUD toast for copied command output
         @State private var copiedHudMessage: String?
@@ -54,6 +55,7 @@ extension SpectrePro {
             _sessionLogger = ObservedObject(wrappedValue: runtime.logger)
             _expectSend = ObservedObject(wrappedValue: runtime.automation)
             _sessionRuntimeObserved = ObservedObject(wrappedValue: runtime)
+            _yubikeyObserved = ObservedObject(wrappedValue: runtime.yubikey)
         }
 
         private var sessionRuntime: RemoteSessionRuntime {
