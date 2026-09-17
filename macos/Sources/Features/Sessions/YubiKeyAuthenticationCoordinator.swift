@@ -103,7 +103,7 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
             throw YubiKeyAuthenticationError.unavailable
         }
 
-        guard let helperURL = Bundle.main.url(forResource: "SpectreProYubiKeyAgent", withExtension: nil, subdirectory: "Helpers") else {
+        guard let helperURL = Self.bundledHelperURL() else {
             state = .failed(YubiKeyAuthenticationError.helperUnavailable.localizedDescription)
             throw YubiKeyAuthenticationError.helperUnavailable
         }
@@ -240,6 +240,14 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         } catch {
             return false
         }
+    }
+
+    private static func bundledHelperURL() -> URL? {
+        let helperURL = Bundle.main.bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Helpers", isDirectory: true)
+            .appendingPathComponent("SpectreProYubiKeyAgent", isDirectory: false)
+        return FileManager.default.isExecutableFile(atPath: helperURL.path) ? helperURL : nil
     }
 }
 
