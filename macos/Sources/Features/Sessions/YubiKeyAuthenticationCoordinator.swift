@@ -151,8 +151,17 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         process.executableURL = helperURL
         process.arguments = ["-l", agentSocket, "-p", promptSocket, "-t", token]
         process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        let stderrPipe = Pipe()
+        process.standardError = stderrPipe
+        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let message = String(data: data, encoding: .utf8) else { return }
+            let sanitized = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !sanitized.isEmpty else { return }
+            AppDiagnostics.error("YubiKey helper: \(sanitized)", category: "YubiKey")
+        }
         process.terminationHandler = { process in
+            stderrPipe.fileHandleForReading.readabilityHandler = nil
             AppDiagnostics.error("YubiKey helper exited with status \(process.terminationStatus).", category: "YubiKey")
         }
         do {
