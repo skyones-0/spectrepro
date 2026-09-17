@@ -83,6 +83,26 @@ func (p promptClient) getPIN(serial uint32, retries int) (string, error) {
 	return message.PIN, nil
 }
 
+func (p promptClient) notifyStatus(status string) {
+	conn, err := net.DialTimeout("unix", p.path, 2*time.Second)
+	if err != nil {
+		log.Printf("connect to Spectre Pro status socket failed: %v", err)
+		return
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	message := promptMessage{Type: "status", Token: p.token, Error: status}
+	encoded, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("encode status notification failed: %v", err)
+		return
+	}
+	encoded = append(encoded, '\n')
+	if _, err := conn.Write(encoded); err != nil {
+		log.Printf("send status notification failed: %v", err)
+	}
+}
+
 type pivAgent struct {
 	mu          sync.Mutex
 	yubiKey     *piv.YubiKey
@@ -197,6 +217,8 @@ func (a *pivAgent) SignWithFlags(key ssh.PublicKey, data []byte, flags agent.Sig
 	signature, err := signer.(ssh.AlgorithmSigner).SignWithAlgorithm(rand.Reader, data, algorithm)
 	if err != nil {
 		log.Printf("PIV SSH signature failed: %v", err)
+	} else {
+		go a.prompt.notifyStatus("authenticated")
 	}
 	return signature, err
 }

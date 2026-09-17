@@ -257,7 +257,17 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     }
 
     private func handlePrompt(_ message: YubiKeyPromptMessage) async -> YubiKeyPromptMessage {
-        guard message.token == authToken, message.type == "pin", let serial = message.serial else {
+        guard message.token == authToken else {
+            return YubiKeyPromptMessage(type: "error", serial: nil, retries: nil, token: message.token, pin: nil, error: "invalid request")
+        }
+
+        if message.type == "status", message.error == "authenticated" {
+            state = .authenticated
+            AppDiagnostics.event("YubiKey authentication completed.", category: "YubiKey")
+            return YubiKeyPromptMessage(type: "status", serial: nil, retries: nil, token: message.token, pin: nil, error: nil)
+        }
+
+        guard message.type == "pin", let serial = message.serial else {
             return YubiKeyPromptMessage(type: "error", serial: nil, retries: nil, token: message.token, pin: nil, error: "invalid request")
         }
 
