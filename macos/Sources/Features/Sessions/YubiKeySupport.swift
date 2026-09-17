@@ -78,9 +78,11 @@ public enum YubiKeyDetector {
             }
             let sshPath = sshCandidates.first { fileManager.isExecutableFile(atPath: $0) } ?? "/usr/bin/ssh"
             let supportsFIDO2 = commandOutput(executable: sshPath, arguments: ["-Q", "key"])?.contains("sk-") == true
-            let pivKeys = library.flatMap { provider in
-                commandOutput(executable: "/usr/bin/ssh-keygen", arguments: ["-D", provider])
-            }?.split(whereSeparator: \.isNewline).map(String.init) ?? []
+            let pivKeys: [String] = library.flatMap { provider -> [String]? in
+                let resolvedProvider = URL(fileURLWithPath: provider).resolvingSymlinksInPath().path
+                return commandOutput(executable: "/usr/bin/ssh-keygen", arguments: ["-D", resolvedProvider])
+                    .map { output in output.split(whereSeparator: { character in character.isNewline }).map(String.init) }
+            } ?? []
             let result = YubiKeyDetectionResult(
                 pkcs11LibraryPath: library,
                 pivPublicKeys: pivKeys,
