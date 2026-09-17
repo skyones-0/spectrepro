@@ -754,7 +754,7 @@ class QuickTerminalController: BaseTerminalController {
             self.quickTerminalScreen = .main
             self.quickTerminalAnimationDuration = 0.2
             self.quickTerminalAutoHide = true
-            self.quickTerminalSpaceBehavior = .move
+            self.quickTerminalSpaceBehavior = .remain
             self.quickTerminalSize = QuickTerminalSize()
             self.backgroundOpacity = 1.0
             self.backgroundBlur = .disabled
