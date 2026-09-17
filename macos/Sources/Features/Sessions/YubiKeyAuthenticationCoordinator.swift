@@ -95,24 +95,33 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
             return
         }
 
+        AppDiagnostics.event("Preparing bundled YubiKey helper for session \(sessionID.uuidString).", category: "YubiKey")
         state = .detecting
         let result = await YubiKeyDetector.detect(forceRefresh: true)
         detection = result
+        AppDiagnostics.event(
+            "YubiKey detection completed: provider=\(result.pkcs11LibraryPath != nil), pivKeys=\(result.pivPublicKeys.count).",
+            category: "YubiKey")
         guard result.pkcs11LibraryPath != nil, !result.pivPublicKeys.isEmpty else {
+            AppDiagnostics.error("YubiKey PIV detection did not find a provider and public key.", category: "YubiKey")
             state = .failed(YubiKeyAuthenticationError.unavailable.localizedDescription)
             throw YubiKeyAuthenticationError.unavailable
         }
 
         guard let helperURL = Self.bundledHelperURL() else {
+            AppDiagnostics.error("Bundled helper was not found in Contents/Helpers.", category: "YubiKey")
             state = .failed(YubiKeyAuthenticationError.helperUnavailable.localizedDescription)
             throw YubiKeyAuthenticationError.helperUnavailable
         }
+        AppDiagnostics.event("Found bundled helper at \(helperURL.path).", category: "YubiKey")
 
         #if !DEBUG
         guard Self.isSignedHelper(helperURL) else {
+            AppDiagnostics.error("Bundled helper failed codesign verification.", category: "YubiKey")
             state = .failed(YubiKeyAuthenticationError.helperUnavailable.localizedDescription)
             throw YubiKeyAuthenticationError.helperUnavailable
         }
+        AppDiagnostics.event("Bundled helper signature verified.", category: "YubiKey")
         #endif
 
         let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
@@ -128,14 +137,28 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
                 type: "error", serial: nil, retries: nil, token: message.token, pin: nil, error: "session ended")
         }
         promptServer = server
-        try server.start()
+        do {
+            try server.start()
+        } catch {
+            AppDiagnostics.error("Could not start YubiKey prompt socket: \(error.localizedDescription).", category: "YubiKey")
+            throw error
+        }
 
         let process = Process()
         process.executableURL = helperURL
         process.arguments = ["-l", agentSocket, "-p", promptSocket, "-t", token]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        try process.run()
+        process.terminationHandler = { process in
+            AppDiagnostics.error("YubiKey helper exited with status \(process.terminationStatus).", category: "YubiKey")
+        }
+        do {
+            try process.run()
+        } catch {
+            AppDiagnostics.error("Could not launch bundled YubiKey helper: \(error.localizedDescription).", category: "YubiKey")
+            throw YubiKeyAuthenticationError.helperUnavailable
+        }
+        AppDiagnostics.event("Bundled YubiKey helper started.", category: "YubiKey")
 
         helperProcess = process
         authSocketPath = agentSocket
