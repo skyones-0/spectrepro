@@ -110,6 +110,7 @@ public struct ActiveSSHContext: Equatable {
     public var sshAuthentication: SSHAuthenticationMethod
     public var kexAlgorithms: String?
     public var pkcs11Provider: String?
+    public var identityAgentPath: String?
     public var sshExecutable: String
     public var jumpHost: String?
     public var controlPath: String
@@ -121,6 +122,7 @@ public struct ActiveSSHContext: Equatable {
         identityFile: String? = nil,
         sshAuthentication: SSHAuthenticationMethod = .automatic,
         pkcs11Provider: String? = nil,
+        identityAgentPath: String? = nil,
         jumpHost: String? = nil,
         kexAlgorithms: String? = nil
     ) {
@@ -131,6 +133,7 @@ public struct ActiveSSHContext: Equatable {
         self.sshAuthentication = sshAuthentication
         self.kexAlgorithms = kexAlgorithms
         self.pkcs11Provider = pkcs11Provider
+        self.identityAgentPath = identityAgentPath
         self.sshExecutable = YubiKeyDetector.sshExecutable(for: sshAuthentication)
         self.jumpHost = jumpHost
         self.controlPath = "/tmp/spectre-ssh-%C.sock"
@@ -181,7 +184,9 @@ public struct ActiveSSHContext: Equatable {
         if let p = port, p != 22 {
             args += ["-P", "\(p)"]
         }
-        if sshAuthentication == .yubikeyPIV, let provider = pkcs11Provider, !provider.isEmpty {
+        if let identityAgentPath {
+            args += ["-o", "IdentityAgent=\(identityAgentPath)"]
+        } else if sshAuthentication == .yubikeyPIV, let provider = pkcs11Provider, !provider.isEmpty {
             args += ["-I", (provider as NSString).expandingTildeInPath]
         } else if let key = identityFile, !key.isEmpty {
             let expanded = (key as NSString).expandingTildeInPath
@@ -200,7 +205,9 @@ public struct ActiveSSHContext: Equatable {
             "-o", "ControlPersist=10m"
         ]
         if let p = port, p != 22 { args += ["-P", "\(p)"] }
-        if sshAuthentication == .yubikeyPIV, let provider = pkcs11Provider, !provider.isEmpty {
+        if let identityAgentPath {
+            args += ["-o", "IdentityAgent=\(identityAgentPath)"]
+        } else if sshAuthentication == .yubikeyPIV, let provider = pkcs11Provider, !provider.isEmpty {
             args += ["-I", (provider as NSString).expandingTildeInPath]
         } else if let key = identityFile, !key.isEmpty {
             args += ["-i", (key as NSString).expandingTildeInPath]
@@ -339,6 +346,7 @@ public final class SSHTransferManager: ObservableObject {
             identityFile: session.identityFile,
             sshAuthentication: session.sshAuthentication,
             pkcs11Provider: session.pkcs11Provider,
+            identityAgentPath: SessionRuntimeRegistry.shared.runtime(for: surfaceId).yubikey.identityAgentPath,
             jumpHost: session.jumpHost,
             kexAlgorithms: session.kexAlgorithms
         )

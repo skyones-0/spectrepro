@@ -57,6 +57,27 @@ struct EnterpriseSessionsTests {
         #expect(!spec.arguments.contains("-i"))
     }
 
+    @Test func testPIVSessionCanUsePerSessionIdentityAgent() throws {
+        let session = SavedSession(
+            name: "YubiKey Agent Server",
+            host: "server.example.com",
+            sshAuthentication: .yubikeyPIV,
+            pkcs11Provider: "/opt/homebrew/lib/libykcs11.dylib"
+        )
+
+        let spec = try session.buildProcessSpec(identityAgentPath: "/tmp/spectrepro-agent.sock")
+
+        #expect(spec.arguments.contains("IdentityAgent=/tmp/spectrepro-agent.sock"))
+        #expect(!spec.arguments.contains("-I"))
+        #expect(!spec.shellCommand.contains("PKCS11Provider"))
+    }
+
+    @Test func testSessionRuntimeOwnsIndependentYubiKeyCoordinators() {
+        let first = SessionRuntimeRegistry.shared.runtime(for: UUID())
+        let second = SessionRuntimeRegistry.shared.runtime(for: UUID())
+        #expect(first.yubikey !== second.yubikey)
+    }
+
     @Test func testKexAlgorithmsAreAppliedToSSHAndTransfers() throws {
         let session = SavedSession(
             name: "KEX Server",

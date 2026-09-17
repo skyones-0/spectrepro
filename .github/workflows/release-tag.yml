@@ -69,6 +69,12 @@ jobs:
           brew install zig
           test "$(zig version)" = "0.16.0"
 
+      - name: Set up Go for bundled helper
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.22.x'
+          cache-dependency-path: tools/SpectreProYubiKeyAgent/go.sum
+
       - name: Ensure Metal toolchain
         run: |
           if ! xcrun -sdk macosx metal -v >/dev/null 2>&1; then
@@ -107,6 +113,18 @@ jobs:
             build/Release/SpectrePro.app/Contents/Info.plist)
           test "$built_version" = "$SPECTREPRO_VERSION"
 
+      - name: Build bundled YubiKey PIV helper
+        run: |
+          cd tools/SpectreProYubiKeyAgent
+          go mod download
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.version=$SPECTREPRO_VERSION" -o "$RUNNER_TEMP/SpectreProYubiKeyAgent"
+          test -x "$RUNNER_TEMP/SpectreProYubiKeyAgent"
+
+          app_path="$GITHUB_WORKSPACE/macos/build/Release/SpectrePro.app"
+          mkdir -p "$app_path/Contents/Helpers"
+          cp "$RUNNER_TEMP/SpectreProYubiKeyAgent" "$app_path/Contents/Helpers/SpectreProYubiKeyAgent"
+          chmod 755 "$app_path/Contents/Helpers/SpectreProYubiKeyAgent"
+
       - name: Set release metadata
         run: |
           app_path="macos/build/Release/SpectrePro.app"
@@ -127,6 +145,9 @@ jobs:
       - name: Sign Spectre Pro.app
         run: |
           app_path="macos/build/Release/SpectrePro.app"
+          codesign --force --sign "$SPECTREPRO_APP_SIGNING_IDENTITY" \
+            --options runtime \
+            "$app_path/Contents/Helpers/SpectreProYubiKeyAgent"
           codesign --force --deep \
             --sign "$SPECTREPRO_APP_SIGNING_IDENTITY" \
             --options runtime \
