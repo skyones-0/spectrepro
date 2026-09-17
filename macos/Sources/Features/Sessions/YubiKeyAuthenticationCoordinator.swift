@@ -81,6 +81,7 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         preparationTask?.cancel()
         helperProcess?.terminate()
         promptServer?.stop()
+        Self.cleanupSocketPaths(authSocketPath: authSocketPath, pinSocketPath: pinSocketPath)
     }
 
     public var isYubiKeyPresent: Bool {
@@ -88,7 +89,12 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         return detection.pkcs11LibraryPath != nil && !detection.pivPublicKeys.isEmpty
     }
 
-    public var identityAgentPath: String? { authSocketPath }
+    public var identityAgentPath: String? {
+        guard let authSocketPath,
+              helperProcess?.isRunning == true,
+              FileManager.default.fileExists(atPath: authSocketPath) else { return nil }
+        return authSocketPath
+    }
 
     public func prepare(for session: SavedSession) async throws {
         guard session.sessionType.lowercased() == "ssh", session.sshAuthentication == .yubikeyPIV else {
@@ -291,6 +297,10 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     }
 
     private func cleanupSocketPaths() {
+        Self.cleanupSocketPaths(authSocketPath: authSocketPath, pinSocketPath: pinSocketPath)
+    }
+
+    private nonisolated static func cleanupSocketPaths(authSocketPath: String?, pinSocketPath: String?) {
         let socketPaths = [authSocketPath, pinSocketPath].compactMap { $0 }
         let directories = Set(socketPaths.map { URL(fileURLWithPath: $0).deletingLastPathComponent().path })
         for path in socketPaths {
