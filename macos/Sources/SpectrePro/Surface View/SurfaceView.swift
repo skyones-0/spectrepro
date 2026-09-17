@@ -298,6 +298,28 @@ extension SpectrePro {
                     YubiKeyDetectedOverlay(state: sessionRuntime.yubikey.state)
                 }
 
+                if isSSHSession &&
+                    !QuickCommandsState.shared.isShowing &&
+                    isFocusedSurface && windowFocus {
+                    switch sessionRuntime.yubikey.state {
+                    case .waitingForPIN(let request):
+                        YubiKeyPINRequestView(
+                            request: request,
+                            onSubmit: { pin in
+                                sessionRuntime.yubikey.acceptPIN(pin)
+                            },
+                            onCancel: {
+                                sessionRuntime.yubikey.cancelPIN()
+                            })
+                            .frame(maxWidth: 320)
+                    case .waitingForTouch:
+                        YubiKeyTouchRequestView()
+                            .frame(maxWidth: 320)
+                    default:
+                        EmptyView()
+                    }
+                }
+
                 if surfaceView.serialDevice != nil && isFocusedSurface && windowFocus {
                     SerialExitOverlay {
                         NotificationCenter.default.post(
