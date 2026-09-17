@@ -115,10 +115,8 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         }
         #endif
 
-        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("co.skyones.spectrepro", isDirectory: true)
-            .appendingPathComponent("yubikey", isDirectory: true)
-            .appendingPathComponent(sessionID.uuidString, isDirectory: true)
+        let directory = URL(fileURLWithPath: "/tmp", isDirectory: true)
+            .appendingPathComponent("spectrepro-yubikey-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
 
@@ -222,8 +220,13 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     }
 
     private func cleanupSocketPaths() {
-        for path in [authSocketPath, pinSocketPath].compactMap({ $0 }) {
+        let socketPaths = [authSocketPath, pinSocketPath].compactMap { $0 }
+        let directories = Set(socketPaths.map { URL(fileURLWithPath: $0).deletingLastPathComponent().path })
+        for path in socketPaths {
             try? FileManager.default.removeItem(atPath: path)
+        }
+        for directory in directories {
+            try? FileManager.default.removeItem(atPath: directory)
         }
     }
 
