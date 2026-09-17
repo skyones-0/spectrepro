@@ -2878,13 +2878,13 @@ keybind: Keybinds = .{},
 ///    was originally opened and will not follow when switching to another
 ///    space.
 ///
-/// The default value is `move`.
+/// The default value is `remain`.
 ///
 /// Only implemented on macOS.
 /// On Linux the behavior is always equivalent to `move`.
 ///
 /// Available since: 1.1.0
-@"quick-terminal-space-behavior": QuickTerminalSpaceBehavior = .move,
+@"quick-terminal-space-behavior": QuickTerminalSpaceBehavior = .remain,
 
 /// Determines under which circumstances that the quick terminal should receive
 /// keyboard input. See the corresponding [Wayland documentation](https://wayland.app/protocols/wlr-layer-shell-unstable-v1#zwlr_layer_surface_v1:enum:keyboard_interactivity)
