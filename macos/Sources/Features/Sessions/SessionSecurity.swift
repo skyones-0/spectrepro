@@ -259,14 +259,19 @@ public enum SessionValidator {
 public struct SSHProcessSpec: Equatable, Sendable {
     public let executable: String
     public let arguments: [String]
+    public let environment: [String: String]
 
-    public init(executable: String, arguments: [String]) {
+    public init(executable: String, arguments: [String], environment: [String: String] = [:]) {
         self.executable = executable
         self.arguments = arguments
+        self.environment = environment
     }
 
     public var shellCommand: String {
-        ([executable] + arguments).map(Self.quote).joined(separator: " ")
+        let prefix = environment
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)=\(Self.quote($0.value))" }
+        return (prefix + [executable] + arguments).map(Self.quote).joined(separator: " ")
     }
 
     private static func quote(_ value: String) -> String {

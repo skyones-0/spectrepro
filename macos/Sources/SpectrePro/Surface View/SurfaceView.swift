@@ -37,6 +37,9 @@ extension SpectrePro {
         // Expect / Send automation engine
         @ObservedObject private var expectSend: ExpectSendEngine
 
+        // Per-surface YubiKey authentication state
+        @ObservedObject private var sessionRuntimeObserved: RemoteSessionRuntime
+
         // Ephemeral HUD toast for copied command output
         @State private var copiedHudMessage: String?
         @State private var isSFTPBrowserPresented = false
@@ -50,10 +53,11 @@ extension SpectrePro {
             let runtime = SessionRuntimeRegistry.shared.runtime(for: surfaceView.id)
             _sessionLogger = ObservedObject(wrappedValue: runtime.logger)
             _expectSend = ObservedObject(wrappedValue: runtime.automation)
+            _sessionRuntimeObserved = ObservedObject(wrappedValue: runtime)
         }
 
         private var sessionRuntime: RemoteSessionRuntime {
-            SessionRuntimeRegistry.shared.runtime(for: surfaceView.id)
+            sessionRuntimeObserved
         }
 
         private var isSSHSession: Bool {
@@ -285,6 +289,12 @@ extension SpectrePro {
                             userInfo: ["surfaceUUID": surfaceView.id]
                         )
                     }
+                }
+
+                if isSSHSession &&
+                    sessionRuntime.yubikey.isYubiKeyPresent &&
+                    isFocusedSurface && windowFocus {
+                    YubiKeyDetectedOverlay(state: sessionRuntime.yubikey.state)
                 }
 
                 if surfaceView.serialDevice != nil && isFocusedSurface && windowFocus {

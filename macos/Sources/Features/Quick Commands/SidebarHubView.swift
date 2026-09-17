@@ -11,6 +11,7 @@ public struct SidebarHubView: View {
     @ObservedObject private var state = QuickCommandsState.shared
     @ObservedObject private var serialWatcher = SerialDeviceWatcher.shared
     @ObservedObject private var taskManager = BackgroundTaskManager.shared
+    @ObservedObject private var sessionRuntime: RemoteSessionRuntime
 
     @State private var hoveredTab: SidebarTab? = nil
 
@@ -26,10 +27,34 @@ public struct SidebarHubView: View {
         self.send = send
         self.splitAndSend = splitAndSend
         self.onPerformAction = onPerformAction
+        self._sessionRuntime = ObservedObject(
+            wrappedValue: surface.map { SessionRuntimeRegistry.shared.runtime(for: $0.id) }
+                ?? RemoteSessionRuntime(surfaceID: UUID()))
     }
 
     public var body: some View {
         VStack(spacing: 0) {
+            if case .waitingForPIN(let request) = sessionRuntime.yubikey.state {
+                YubiKeyPINRequestView(
+                    request: request,
+                    onSubmit: { pin in
+                        sessionRuntime.yubikey.acceptPIN(pin)
+                    },
+                    onCancel: {
+                        sessionRuntime.yubikey.cancelPIN()
+                    })
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            if case .waitingForTouch = sessionRuntime.yubikey.state {
+                YubiKeyTouchRequestView()
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Top Tab Strip (SpectrePro Minimalist Segmented 4-Icon Bar)
             HStack(spacing: 3) {
                 ForEach(SidebarTab.allCases) { tab in

@@ -261,7 +261,7 @@ public struct SavedSession: Identifiable, Codable, Equatable {
         self.kexAlgorithms = try container.decodeIfPresent(String.self, forKey: .kexAlgorithms)
     }
 
-    public func buildProcessSpec() throws -> SSHProcessSpec {
+    public func buildProcessSpec(identityAgentPath: String? = nil) throws -> SSHProcessSpec {
         let errors = SessionValidator.validate(self)
         guard errors.isEmpty else { throw errors[0] }
 
@@ -286,7 +286,9 @@ public struct SavedSession: Identifiable, Codable, Equatable {
                 arguments += ["-o", "KexAlgorithms=\(kexAlgorithms)"]
             }
             if let port, port != 22 { arguments += ["-p", "\(port)"] }
-            if sshAuthentication == .yubikeyPIV,
+            if let identityAgentPath, !identityAgentPath.isEmpty {
+                arguments += ["-o", "IdentityAgent=\(identityAgentPath)"]
+            } else if sshAuthentication == .yubikeyPIV,
                let provider = pkcs11Provider?.trimmingCharacters(in: .whitespacesAndNewlines),
                !provider.isEmpty {
                 arguments += ["-I", (provider as NSString).expandingTildeInPath]
@@ -819,42 +821,90 @@ public struct SessionManagerView: View {
     }
 
     private func handleConnect(session: SavedSession, inNewTab: Bool, inSplit: Bool) {
-        let cmd: String
-        do {
-            cmd = try session.buildProcessSpec().shellCommand
-        } catch {
-            connectionError = error.localizedDescription
-            return
-        }
-
         if let surface = surface {
             let runtime = SessionRuntimeRegistry.shared.runtime(for: surface.id)
             runtime.reset()
             runtime.attach(session)
-            if session.sessionLogging {
-                runtime.logger.startRecording(sessionName: session.name)
-            }
-            if !session.expectSendRules.isEmpty {
-                let storedSecret: String?
-                if let reference = session.credentialReference {
-                    storedSecret = try? SessionCredentialStore.shared.secret(for: reference)
-                } else {
-                    storedSecret = nil
+            Task { @MainActor in
+                do {
+                    let agentPath = try await runtime.prepareAuthentication(for: session)
+                    try self.finishConnection(
+                        session: session,
+                        runtime: runtime,
+                        surface: surface,
+                        agentPath: agentPath,
+                        inNewTab: inNewTab,
+                        inSplit: inSplit)
+                } catch {
+                    if session.sshAuthentication == .yubikeyPIV,
+                       error is YubiKeyAuthenticationError,
+                       let provider = session.pkcs11Provider,
+                       !provider.isEmpty,
+                       await confirmExternalYubiKeyFallback() {
+                        do {
+                            try self.finishConnection(
+                                session: session,
+                                runtime: runtime,
+                                surface: surface,
+                                agentPath: nil,
+                                inNewTab: inNewTab,
+                                inSplit: inSplit)
+                        } catch {
+                            connectionError = error.localizedDescription
+                        }
+                    } else if session.sshAuthentication == .yubikeyPIV {
+                        connectionError = "YubiKey authentication unavailable: \(error.localizedDescription)"
+                    } else {
+                        connectionError = error.localizedDescription
+                    }
                 }
-                runtime.automation.start(
-                    rules: session.expectSendRules,
-                    textReader: { [weak surface] in surface?.readVisibleText() ?? "" },
-                    textSender: { [weak surface] text in surface?.surfaceModel?.sendText(text) },
-                    secretProvider: { storedSecret }
-                )
             }
+            return
         }
+        do {
+            let cmd = try session.buildProcessSpec().shellCommand
+            if inSplit { onSplitAndConnect?(cmd) } else { onConnect(cmd, inNewTab) }
+        } catch {
+            connectionError = error.localizedDescription
+        }
+    }
 
-        if inSplit {
-            onSplitAndConnect?(cmd)
-        } else {
-            onConnect(cmd, inNewTab)
+    @MainActor
+    private func confirmExternalYubiKeyFallback() async -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Use external YubiKey prompt?"
+        alert.informativeText = "The bundled Spectre Pro helper is unavailable. OpenSSH can continue using the installed PKCS#11 provider and its external PIN prompt."
+        alert.addButton(withTitle: "Use External Prompt")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    @MainActor
+    private func finishConnection(
+        session: SavedSession,
+        runtime: RemoteSessionRuntime,
+        surface: SpectrePro.SurfaceView,
+        agentPath: String?,
+        inNewTab: Bool,
+        inSplit: Bool
+    ) throws {
+        var spec = try session.buildProcessSpec(identityAgentPath: agentPath)
+        if let agentPath {
+            spec = SSHProcessSpec(
+                executable: spec.executable,
+                arguments: spec.arguments,
+                environment: ["SSH_AUTH_SOCK": agentPath])
         }
+        if session.sessionLogging { runtime.logger.startRecording(sessionName: session.name) }
+        if !session.expectSendRules.isEmpty {
+            let storedSecret = session.credentialReference.flatMap { try? SessionCredentialStore.shared.secret(for: $0) }
+            runtime.automation.start(
+                rules: session.expectSendRules,
+                textReader: { [weak surface] in surface?.readVisibleText() ?? "" },
+                textSender: { [weak surface] text in surface?.surfaceModel?.sendText(text) },
+                secretProvider: { storedSecret })
+        }
+        if inSplit { onSplitAndConnect?(spec.shellCommand) } else { onConnect(spec.shellCommand, inNewTab) }
     }
 }
 

@@ -47,14 +47,27 @@ public enum YubiKeyDetector {
         "/usr/bin/ssh"
     ]
 
+    private static let cacheLock = NSLock()
+    private static var cachedResult: (result: YubiKeyDetectionResult, date: Date)?
+    private static let cacheLifetime: TimeInterval = 30
+
     public static func sshExecutable(for method: SSHAuthenticationMethod) -> String {
         guard method == .yubikeyFIDO2 else { return "/usr/bin/ssh" }
         let fileManager = FileManager.default
         return sshCandidates.first { fileManager.isExecutableFile(atPath: $0) } ?? "/usr/bin/ssh"
     }
 
-    public static func detect() async -> YubiKeyDetectionResult {
-        await Task.detached(priority: .utility) {
+    public static func detect(forceRefresh: Bool = false) async -> YubiKeyDetectionResult {
+        if !forceRefresh {
+            cacheLock.lock()
+            let cached = cachedResult
+            cacheLock.unlock()
+            if let cached, Date().timeIntervalSince(cached.date) < cacheLifetime {
+                return cached.result
+            }
+        }
+
+        return await Task.detached(priority: .utility) {
             let fileManager = FileManager.default
             let processArchitecture = commandOutput(executable: "/usr/bin/arch", arguments: [])?.trimmingCharacters(in: .whitespacesAndNewlines)
             let library = pkcs11Candidates.first { path in
@@ -68,12 +81,16 @@ public enum YubiKeyDetector {
             let pivKeys = library.flatMap { provider in
                 commandOutput(executable: "/usr/bin/ssh-keygen", arguments: ["-D", provider])
             }?.split(whereSeparator: \.isNewline).map(String.init) ?? []
-            return YubiKeyDetectionResult(
+            let result = YubiKeyDetectionResult(
                 pkcs11LibraryPath: library,
                 pivPublicKeys: pivKeys,
                 sshExecutablePath: sshPath,
                 supportsFIDO2: supportsFIDO2
             )
+            cacheLock.lock()
+            cachedResult = (result, Date())
+            cacheLock.unlock()
+            return result
         }.value
     }
 

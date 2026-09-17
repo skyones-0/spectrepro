@@ -8,6 +8,7 @@ public final class RemoteSessionRuntime: ObservableObject {
     public let transfers: SSHTransferManager
     public let reconnect: SSHReconnectController
     public let credentialStore: SessionCredentialStore
+    public let yubikey: YubiKeyAuthenticationCoordinator
 
     public private(set) var session: SavedSession?
 
@@ -18,11 +19,24 @@ public final class RemoteSessionRuntime: ObservableObject {
         self.transfers = SSHTransferManager()
         self.reconnect = SSHReconnectController()
         self.credentialStore = SessionCredentialStore()
+        self.yubikey = YubiKeyAuthenticationCoordinator(sessionID: surfaceID)
     }
 
     public func attach(_ session: SavedSession) {
         self.session = session
         transfers.registerContext(for: surfaceID, session: session)
+    }
+
+    public func prepareAuthentication(for session: SavedSession) async throws -> String? {
+        guard session.sshAuthentication == .yubikeyPIV else { return nil }
+        do {
+            try await yubikey.prepare(for: session)
+            transfers.registerContext(for: surfaceID, session: session)
+            return yubikey.identityAgentPath
+        } catch {
+            yubikey.stop()
+            throw error
+        }
     }
 
     /// Convenience wrapper that resolves a credential from the per-session store.
@@ -34,6 +48,7 @@ public final class RemoteSessionRuntime: ObservableObject {
         automation.cancel()
         reconnect.reset()
         transfers.reset(surfaceId: surfaceID)
+        yubikey.stop()
         _ = logger.stopRecording()
         // Credentials are NOT cleared from Keychain on reset — they persist
         // until the session is explicitly deleted via SessionLibrary.delete(_:).
