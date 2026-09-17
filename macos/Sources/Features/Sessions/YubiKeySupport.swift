@@ -80,6 +80,7 @@ public enum YubiKeyDetector {
             let supportsFIDO2 = commandOutput(executable: sshPath, arguments: ["-Q", "key"])?.contains("sk-") == true
             let pivKeys: [String] = library.flatMap { provider -> [String]? in
                 let resolvedProvider = URL(fileURLWithPath: provider).resolvingSymlinksInPath().path
+                AppDiagnostics.event("Enumerating PIV keys with provider path \(resolvedProvider).", category: "YubiKey")
                 return commandOutput(executable: "/usr/bin/ssh-keygen", arguments: ["-D", resolvedProvider])
                     .map { output in output.split(whereSeparator: { character in character.isNewline }).map(String.init) }
             } ?? []

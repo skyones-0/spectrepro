@@ -102,10 +102,13 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         AppDiagnostics.event(
             "YubiKey detection completed: provider=\(result.pkcs11LibraryPath != nil), pivKeys=\(result.pivPublicKeys.count).",
             category: "YubiKey")
-        guard result.pkcs11LibraryPath != nil, !result.pivPublicKeys.isEmpty else {
-            AppDiagnostics.error("YubiKey PIV detection did not find a provider and public key.", category: "YubiKey")
+        guard result.pkcs11LibraryPath != nil else {
+            AppDiagnostics.error("YubiKey PIV detection did not find a PKCS#11 provider.", category: "YubiKey")
             state = .failed(YubiKeyAuthenticationError.unavailable.localizedDescription)
             throw YubiKeyAuthenticationError.unavailable
+        }
+        if result.pivPublicKeys.isEmpty {
+            AppDiagnostics.event("PKCS#11 provider was found but public-key enumeration returned no keys; continuing so the bundled helper can validate the token.", category: "YubiKey")
         }
 
         guard let helperURL = Self.bundledHelperURL() else {
