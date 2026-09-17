@@ -69,6 +69,7 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     private var authSocketPath: String?
     private var pinSocketPath: String?
     private var authToken: String?
+    private var preparationTask: Task<Void, Error>?
 
     public init(sessionID: UUID) {
         self.sessionID = sessionID
@@ -77,6 +78,7 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     deinit {
         detectionTask?.cancel()
         requestTimeoutTask?.cancel()
+        preparationTask?.cancel()
         helperProcess?.terminate()
         promptServer?.stop()
     }
@@ -89,15 +91,33 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     public var identityAgentPath: String? { authSocketPath }
 
     public func prepare(for session: SavedSession) async throws {
-        stop()
         guard session.sessionType.lowercased() == "ssh", session.sshAuthentication == .yubikeyPIV else {
+            stop()
             state = .idle
             return
         }
 
+        if let preparationTask {
+            try await preparationTask.value
+            return
+        }
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            try await self.performPreparation(for: session)
+        }
+        preparationTask = task
+        defer { preparationTask = nil }
+        try await task.value
+    }
+
+    private func performPreparation(for session: SavedSession) async throws {
+        stopResources()
+
         AppDiagnostics.event("Preparing bundled YubiKey helper for session \(sessionID.uuidString).", category: "YubiKey")
         state = .detecting
         let result = await YubiKeyDetector.detect(forceRefresh: true)
+        try Task.checkCancellation()
         detection = result
         AppDiagnostics.event(
             "YubiKey detection completed: provider=\(result.pkcs11LibraryPath != nil), pivKeys=\(result.pivPublicKeys.count).",
@@ -213,6 +233,12 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     }
 
     public func stop() {
+        preparationTask?.cancel()
+        preparationTask = nil
+        stopResources()
+    }
+
+    private func stopResources() {
         pinContinuation?.resume(throwing: YubiKeyAuthenticationError.cancelled)
         pinContinuation = nil
         requestTimeoutTask?.cancel()
