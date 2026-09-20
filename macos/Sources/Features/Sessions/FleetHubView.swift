@@ -4,6 +4,7 @@ import AppKit
 public struct FleetHubView: View {
     @ObservedObject var fleet = FleetManager.shared
     @ObservedObject var library = SessionLibrary.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var importText: String = ""
     @State private var isImportPresented = false
@@ -25,20 +26,6 @@ public struct FleetHubView: View {
                 }
 
                 Spacer()
-
-                Button {
-                    Task { await fleet.pingAll() }
-                } label: {
-                    if fleet.isScanning {
-                        ProgressView().scaleEffect(0.6).frame(width: 14, height: 14)
-                    } else {
-                        Image(systemName: "waveform.path.ecg")
-                    }
-                    Text("Ping Fleet")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(fleet.isScanning)
 
                 Button {
                     isImportPresented = true
@@ -63,6 +50,27 @@ public struct FleetHubView: View {
         }
         .onAppear {
             fleet.refreshFromLibrary()
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await refreshFleetWhileActive()
+        }
+    }
+
+    /// This task belongs to the Fleet sheet, so SwiftUI cancels it when the
+    /// sheet closes. Changing the app scene to inactive cancels it as well.
+    private func refreshFleetWhileActive() async {
+        await fleet.pingAll()
+
+        while !Task.isCancelled {
+            do {
+                try await Task.sleep(nanoseconds: 10_000_000_000)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+            await fleet.pingAll()
         }
     }
 
