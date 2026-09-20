@@ -5,18 +5,10 @@ public struct FleetHubView: View {
     @ObservedObject var fleet = FleetManager.shared
     @ObservedObject var library = SessionLibrary.shared
 
-    @State private var selectedTab: FleetTab = .overview
     @State private var importText: String = ""
     @State private var isImportPresented = false
     @State private var importErrorMessage: String? = nil
     @State private var importSuccessCount: Int? = nil
-
-    public enum FleetTab: String, CaseIterable, Identifiable {
-        case overview = "Fleet Overview"
-        case serialProfiles = "Hardware Profiles"
-
-        public var id: String { rawValue }
-    }
 
     public init() {}
 
@@ -25,7 +17,7 @@ public struct FleetHubView: View {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Fleet & Hardware Operations")
+                    Text("Fleet Operations")
                         .font(.headline)
                     Text("\(fleet.fleetNodes.count) managed endpoint(s)")
                         .font(.caption2)
@@ -33,14 +25,6 @@ public struct FleetHubView: View {
                 }
 
                 Spacer()
-
-                Picker("", selection: $selectedTab) {
-                    ForEach(FleetTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 280)
 
                 Button {
                     Task { await fleet.pingAll() }
@@ -70,16 +54,8 @@ public struct FleetHubView: View {
 
             Divider()
 
-            // Main Content
-            Group {
-                switch selectedTab {
-                case .overview:
-                    fleetOverviewTable
-                case .serialProfiles:
-                    serialProfilesView
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            fleetOverviewTable
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 640, minHeight: 460)
         .sheet(isPresented: $isImportPresented) {
@@ -149,48 +125,6 @@ public struct FleetHubView: View {
                     .padding(.vertical, 4)
                 }
             }
-        }
-    }
-
-    // MARK: - Serial Hardware Profiles
-
-    private var serialProfilesView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("NETWORK HARDWARE SERIAL CONSOLE PRESETS")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
-
-                ForEach(SerialHardwareManufacturer.allCases) { prof in
-                    HStack(spacing: 12) {
-                        Image(systemName: "cable.connector.horizontal")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color.accentColor)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(prof.rawValue)
-                                .font(.system(size: 13, weight: .semibold))
-                            Text("Baud: \(prof.defaultBaudRate) | Line delay: \(prof.recommendedLineDelayMs)ms | Char delay: 2ms")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Text("Recommended")
-                            .font(.system(size: 10, weight: .medium))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.12))
-                            .foregroundStyle(Color.accentColor)
-                            .clipShape(Capsule())
-                    }
-                    .padding(10)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .cornerRadius(8)
-                }
-            }
-            .padding(16)
         }
     }
 
