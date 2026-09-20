@@ -70,6 +70,14 @@ extension SpectrePro {
             surfaceView.window?.windowController is QuickTerminalController
         }
 
+        /// Keep terminal cells clear of the floating control stack at the trailing edge.
+        /// A terminal is a rectangular grid, so the only way to prevent text from
+        /// appearing behind those controls is to reserve their column from the
+        /// renderer rather than merely drawing the controls above it.
+        private var trailingOverlayGutterWidth: CGFloat {
+            isQuickTerminal ? 0 : 54
+        }
+
         private var isFocusedSurface: Bool {
             if surfaceView.focused { return true }
             if surfaceFocus { return true }
@@ -90,10 +98,16 @@ extension SpectrePro {
                 // is up to date. See TerminalSurfaceView for why we don't use the NSView
                 // resize callback.
                 GeometryReader { geo in
+                    let terminalSize = CGSize(
+                        width: max(0, geo.size.width - trailingOverlayGutterWidth),
+                        height: geo.size.height
+                    )
                     let pubBecomeKey = center.publisher(for: NSWindow.didBecomeKeyNotification)
                     let pubResign = center.publisher(for: NSWindow.didResignKeyNotification)
 
-                    SurfaceRepresentable(view: surfaceView, size: geo.size)
+                    SurfaceRepresentable(view: surfaceView, size: terminalSize)
+                        .frame(width: terminalSize.width, height: terminalSize.height)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                         .focused($surfaceFocus)
                         .focusedValue(\.spectreproSurfacePwd, surfaceView.pwd)
                         .focusedValue(\.spectreproSurfaceView, surfaceView)
@@ -114,7 +128,7 @@ extension SpectrePro {
                     // If our geo size changed then we show the resize overlay as configured.
                     if let surfaceSize = surfaceView.surfaceSize {
                         SurfaceResizeOverlay(
-                            geoSize: geo.size,
+                            geoSize: terminalSize,
                             size: surfaceSize,
                             overlay: spectrepro.config.resizeOverlay,
                             position: spectrepro.config.resizeOverlayPosition,
