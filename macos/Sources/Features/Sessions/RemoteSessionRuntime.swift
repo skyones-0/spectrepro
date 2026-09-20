@@ -32,7 +32,11 @@ public final class RemoteSessionRuntime: ObservableObject {
         do {
             try await yubikey.prepare(for: session)
             transfers.registerContext(for: surfaceID, session: session)
-            return yubikey.identityAgentPath
+            guard let agentPath = yubikey.identityAgentPath else {
+                AppDiagnostics.error("YubiKey helper finished preparation without an SSH-agent socket.", category: "YubiKey")
+                throw YubiKeyAuthenticationError.helperUnavailable
+            }
+            return agentPath
         } catch {
             yubikey.stop()
             throw error

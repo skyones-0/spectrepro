@@ -202,6 +202,16 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         authSocketPath = agentSocket
         pinSocketPath = promptSocket
         authToken = token
+
+        do {
+            try await waitForAgentSocket(at: agentSocket, process: process)
+        } catch {
+            AppDiagnostics.error("Bundled YubiKey helper did not become ready: \(error.localizedDescription).", category: "YubiKey")
+            stopResources()
+            state = .failed(YubiKeyAuthenticationError.helperUnavailable.localizedDescription)
+            throw YubiKeyAuthenticationError.helperUnavailable
+        }
+
         state = .authenticating
         detectionTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
@@ -214,6 +224,65 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
                     return
                 }
             }
+        }
+    }
+
+    /// The helper creates its SSH-agent socket asynchronously. Do not let the
+    /// connection builder fall back to the external PKCS#11 provider while the
+    /// helper is still starting up.
+    private func waitForAgentSocket(at path: String, process: Process) async throws {
+        let maximumAttempts = 50
+        for _ in 0..<maximumAttempts {
+            try Task.checkCancellation()
+
+            guard process.isRunning else {
+                throw YubiKeyAuthenticationError.helperUnavailable
+            }
+            if FileManager.default.fileExists(atPath: path) {
+                let isReady = await Task.detached(priority: .utility) {
+                    Self.agentHasIdentity(at: path)
+                }.value
+                if isReady {
+                    return
+                }
+            }
+
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        throw YubiKeyAuthenticationError.helperUnavailable
+    }
+
+    /// Ask the newly started agent for public identities before handing its
+    /// socket to OpenSSH. This avoids treating a merely-created socket as a
+    /// ready agent and falling back to direct PKCS#11 authentication.
+    private nonisolated static func agentHasIdentity(at socketPath: String) -> Bool {
+        let process = Process()
+        let output = Pipe()
+        let completion = DispatchGroup()
+        completion.enter()
+
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh-add")
+        process.arguments = ["-L"]
+        process.environment = ["SSH_AUTH_SOCK": socketPath]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { _ in completion.leave() }
+
+        do {
+            try process.run()
+            guard completion.wait(timeout: .now() + 1) == .success else {
+                process.terminate()
+                return false
+            }
+            guard process.terminationStatus == 0 else { return false }
+            let identities = String(
+                data: output.fileHandleForReading.readDataToEndOfFile(),
+                encoding: .utf8
+            )
+            return identities?.contains("ssh-") == true || identities?.contains("ecdsa-") == true
+        } catch {
+            return false
         }
     }
 
