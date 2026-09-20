@@ -145,15 +145,6 @@ public struct FleetHubView: View {
                             .cornerRadius(4)
                         }
 
-                        if let days = node.certificateDaysRemaining {
-                            HStack(spacing: 2) {
-                                Image(systemName: "lock.shield")
-                                    .font(.system(size: 9))
-                                Text("\(days)d cert")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundStyle(days < 30 ? .red : .secondary)
-                        }
                     }
                     .padding(.vertical, 4)
                 }

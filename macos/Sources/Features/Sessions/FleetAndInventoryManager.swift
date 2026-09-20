@@ -150,7 +150,6 @@ public struct FleetNodeHealth: Identifiable, Equatable, Sendable {
     public var latencyMs: Double?
     public var lastSeen: Date?
     public var activeTunnelsCount: Int
-    public var certificateDaysRemaining: Int?
 
     public init(
         id: UUID,
@@ -159,8 +158,7 @@ public struct FleetNodeHealth: Identifiable, Equatable, Sendable {
         isReachable: Bool = false,
         latencyMs: Double? = nil,
         lastSeen: Date? = nil,
-        activeTunnelsCount: Int = 0,
-        certificateDaysRemaining: Int? = 365
+        activeTunnelsCount: Int = 0
     ) {
         self.id = id
         self.host = host
@@ -169,7 +167,6 @@ public struct FleetNodeHealth: Identifiable, Equatable, Sendable {
         self.latencyMs = latencyMs
         self.lastSeen = lastSeen
         self.activeTunnelsCount = activeTunnelsCount
-        self.certificateDaysRemaining = certificateDaysRemaining
     }
 }
 
@@ -194,8 +191,7 @@ public final class FleetManager: ObservableObject {
                 isReachable: true,
                 latencyMs: Double.random(in: 12.0...48.0),
                 lastSeen: Date(),
-                activeTunnelsCount: s.portForwards.count,
-                certificateDaysRemaining: Int.random(in: 30...360)
+                activeTunnelsCount: s.portForwards.count
             )
         }
     }
