@@ -650,6 +650,7 @@ public struct SessionManagerView: View {
     @State private var editingSession: SavedSession? = nil
     @State private var collapsedFolders: Set<String> = []
     @State private var connectionError: String?
+    @State private var connectionTask: Task<Void, Never>?
 
     init(
         surface: SpectrePro.SurfaceView?,
@@ -848,10 +849,12 @@ public struct SessionManagerView: View {
 
     private func handleConnect(session: SavedSession, inNewTab: Bool, inSplit: Bool) {
         if let surface = surface {
+            guard connectionTask == nil else { return }
             let runtime = SessionRuntimeRegistry.shared.runtime(for: surface.id)
             runtime.reset()
             runtime.attach(session)
-            Task { @MainActor in
+            connectionTask = Task { @MainActor in
+                defer { connectionTask = nil }
                 do {
                     let agentPath = try await runtime.prepareAuthentication(for: session)
                     try self.finishConnection(
@@ -862,6 +865,10 @@ public struct SessionManagerView: View {
                         inNewTab: inNewTab,
                         inSplit: inSplit)
                 } catch {
+                    if error is CancellationError ||
+                        (error as? YubiKeyAuthenticationError) == .cancelled {
+                        return
+                    }
                     if session.sshAuthentication == .yubikeyPIV,
                        error is YubiKeyAuthenticationError,
                        let provider = session.pkcs11Provider,
