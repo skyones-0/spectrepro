@@ -32,7 +32,7 @@ public struct WorkspaceHubView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
+            VStack(alignment: .leading, spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(store.activeWorkspace?.name ?? "Default Workspace")
                         .font(.headline)
@@ -40,25 +40,27 @@ public struct WorkspaceHubView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
 
-                Picker("", selection: $selectedTab) {
-                    ForEach(WorkspaceSection.allCases) { section in
-                        Text(section.rawValue).tag(section)
+                HStack(spacing: 8) {
+                    Picker("Workspace section", selection: $selectedTab) {
+                        ForEach(WorkspaceSection.allCases) { section in
+                            Text(section.rawValue).tag(section)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 380)
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: .infinity)
 
-                Button {
-                    exportBundle()
-                } label: {
-                    Label("Export Bundle", systemImage: "square.and.arrow.up")
-                        .font(.system(size: 11))
+                    Button {
+                        exportBundle()
+                    } label: {
+                        Label("Export Bundle", systemImage: "square.and.arrow.up")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .help("Export sanitized incident bundle to clipboard")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("Export sanitized incident bundle to clipboard")
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)

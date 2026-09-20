@@ -75,7 +75,9 @@ extension SpectrePro {
         /// appearing behind those controls is to reserve their column from the
         /// renderer rather than merely drawing the controls above it.
         private var trailingOverlayGutterWidth: CGFloat {
-            isQuickTerminal ? 0 : 54
+            // Controls are 35 pt wide and sit 4 pt from the edge. Keep a small
+            // 3 pt clearance between the terminal grid and the control stack.
+            isQuickTerminal ? 0 : 42
         }
 
         private var isFocusedSurface: Bool {
@@ -389,7 +391,7 @@ extension SpectrePro {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(.top, 10)
-            .padding(.trailing, 10)
+            .padding(.trailing, 4)
             .onReceive(NotificationCenter.default.publisher(for: .spectreproOpenSFTPBrowser)) { notification in
                 guard let targetUUID = notification.userInfo?["surfaceUUID"] as? UUID,
                       targetUUID == surfaceView.id else { return }
