@@ -66,6 +66,7 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     private var pinContinuation: CheckedContinuation<String, Error>?
     private var requestTimeoutTask: Task<Void, Never>?
     private var detectionTask: Task<Void, Never>?
+    private var preparationID: UUID?
     private var authSocketPath: String?
     private var pinSocketPath: String?
     private var authToken: String?
@@ -108,22 +109,30 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
             return
         }
 
+        let preparationID = UUID()
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            try await self.performPreparation(for: session)
+            try await self.performPreparation(for: session, preparationID: preparationID)
         }
         preparationTask = task
-        defer { preparationTask = nil }
+        self.preparationID = preparationID
+        defer {
+            if self.preparationID == preparationID {
+                self.preparationTask = nil
+                self.preparationID = nil
+            }
+        }
         try await task.value
     }
 
-    private func performPreparation(for session: SavedSession) async throws {
+    private func performPreparation(for session: SavedSession, preparationID: UUID) async throws {
+        try checkPreparationIsCurrent(preparationID)
         stopResources()
 
         AppDiagnostics.event("Preparing bundled YubiKey helper for session \(sessionID.uuidString).", category: "YubiKey")
         state = .detecting
         let result = await YubiKeyDetector.detect(forceRefresh: true)
-        try Task.checkCancellation()
+        try checkPreparationIsCurrent(preparationID)
         detection = result
         AppDiagnostics.event(
             "YubiKey detection completed: provider=\(result.pkcs11LibraryPath != nil), pivKeys=\(result.pivPublicKeys.count).",
@@ -206,11 +215,19 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         do {
             try await waitForAgentSocket(at: agentSocket, process: process)
         } catch {
+            guard self.preparationID == preparationID else {
+                process.terminate()
+                server.stop()
+                Self.cleanupSocketPaths(authSocketPath: agentSocket, pinSocketPath: promptSocket)
+                throw error
+            }
             AppDiagnostics.error("Bundled YubiKey helper did not become ready: \(error.localizedDescription).", category: "YubiKey")
             stopResources()
             state = .failed(YubiKeyAuthenticationError.helperUnavailable.localizedDescription)
             throw YubiKeyAuthenticationError.helperUnavailable
         }
+
+        try checkPreparationIsCurrent(preparationID)
 
         state = .authenticating
         detectionTask = Task { @MainActor [weak self] in
@@ -251,6 +268,11 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
         }
 
         throw YubiKeyAuthenticationError.helperUnavailable
+    }
+
+    private func checkPreparationIsCurrent(_ id: UUID) throws {
+        try Task.checkCancellation()
+        guard preparationID == id else { throw CancellationError() }
     }
 
     /// Ask the newly started agent for public identities before handing its
@@ -310,6 +332,7 @@ public final class YubiKeyAuthenticationCoordinator: ObservableObject {
     public func stop() {
         preparationTask?.cancel()
         preparationTask = nil
+        preparationID = nil
         stopResources()
     }
 
