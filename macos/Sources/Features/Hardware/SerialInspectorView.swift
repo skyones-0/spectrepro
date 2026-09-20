@@ -36,6 +36,41 @@ public struct SerialConnectionConfig: Equatable {
 
 }
 
+public enum SerialHardwareManufacturer: String, CaseIterable, Identifiable, Sendable {
+    case cisco = "Cisco IOS / Catalyst"
+    case juniper = "Juniper JunOS"
+    case arista = "Arista EOS"
+    case mikrotik = "MikroTik RouterOS"
+    case generic = "Generic RS-232 / 485"
+
+    public var id: String { rawValue }
+
+    public var defaultBaudRate: Int {
+        switch self {
+        case .cisco, .generic, .juniper: return 9600
+        case .arista, .mikrotik: return 115200
+        }
+    }
+
+    public var recommendedLineDelayMs: Int {
+        switch self {
+        case .cisco: return 50
+        case .juniper: return 30
+        case .arista: return 10
+        case .mikrotik: return 20
+        case .generic: return 50
+        }
+    }
+
+    public func createConfig(devicePath: String) -> SerialConnectionConfig {
+        var config = SerialConnectionConfig.default(for: devicePath, name: rawValue)
+        config.baudRate = defaultBaudRate
+        config.lineDelayMs = recommendedLineDelayMs
+        config.charDelayMs = 2
+        return config
+    }
+}
+
 enum SerialInspectorSelection {
     static func requiresConfigurationReset(previousPath: String?, newPath: String) -> Bool {
         previousPath != newPath
@@ -151,6 +186,7 @@ public struct SerialInspectorView: View {
     @State private var availablePorts: [SerialDevice] = []
     @State private var selectedDevice: SerialDevice? = nil
     @State private var config: SerialConnectionConfig = .default(for: "/dev/cu.usbserial", name: "Serial Port")
+    @State private var selectedHardwareProfile: SerialHardwareManufacturer? = nil
 
     // Hardware tools state
     @State private var breakFeedbackMessage: String? = nil
@@ -204,6 +240,60 @@ public struct SerialInspectorView: View {
         state.selectedSerialDevicePath = dev.bsdPath
         if shouldResetConfiguration {
             config = .default(for: dev.bsdPath, name: dev.name)
+        }
+    }
+
+    private func applyHardwareProfile(_ profile: SerialHardwareManufacturer) {
+        config = profile.createConfig(devicePath: selectedDevice?.bsdPath ?? config.devicePath)
+        selectedHardwareProfile = profile
+    }
+
+    private var hardwareProfiles: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("SERIAL HARDWARE PRESETS")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.secondary)
+
+            Text("Select a preset to apply its recommended baud rate and paste delays.")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+
+            ForEach(SerialHardwareManufacturer.allCases) { profile in
+                Button {
+                    applyHardwareProfile(profile)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "cable.connector.horizontal")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 16)
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(profile.rawValue)
+                                .font(.system(size: 11, weight: .medium))
+                            Text("\(profile.defaultBaudRate) baud · \(profile.recommendedLineDelayMs) ms line · 2 ms character")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        if selectedHardwareProfile == profile {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(selectedHardwareProfile == profile ? Color.accentColor.opacity(0.12) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Apply \(profile.rawValue) serial preset")
+            }
         }
     }
 
@@ -328,6 +418,11 @@ public struct SerialInspectorView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 6)
+
+                    Divider()
+
+                    hardwareProfiles
+                        .padding(.horizontal, 12)
 
                     Divider()
 

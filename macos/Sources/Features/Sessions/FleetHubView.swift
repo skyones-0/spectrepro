@@ -4,19 +4,12 @@ import AppKit
 public struct FleetHubView: View {
     @ObservedObject var fleet = FleetManager.shared
     @ObservedObject var library = SessionLibrary.shared
+    @Environment(\.scenePhase) private var scenePhase
 
-    @State private var selectedTab: FleetTab = .overview
     @State private var importText: String = ""
     @State private var isImportPresented = false
     @State private var importErrorMessage: String? = nil
     @State private var importSuccessCount: Int? = nil
-
-    public enum FleetTab: String, CaseIterable, Identifiable {
-        case overview = "Fleet Overview"
-        case serialProfiles = "Hardware Profiles"
-
-        public var id: String { rawValue }
-    }
 
     public init() {}
 
@@ -25,7 +18,7 @@ public struct FleetHubView: View {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Fleet & Hardware Operations")
+                    Text("Fleet Operations")
                         .font(.headline)
                     Text("\(fleet.fleetNodes.count) managed endpoint(s)")
                         .font(.caption2)
@@ -33,28 +26,6 @@ public struct FleetHubView: View {
                 }
 
                 Spacer()
-
-                Picker("", selection: $selectedTab) {
-                    ForEach(FleetTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 280)
-
-                Button {
-                    Task { await fleet.pingAll() }
-                } label: {
-                    if fleet.isScanning {
-                        ProgressView().scaleEffect(0.6).frame(width: 14, height: 14)
-                    } else {
-                        Image(systemName: "waveform.path.ecg")
-                    }
-                    Text("Ping Fleet")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(fleet.isScanning)
 
                 Button {
                     isImportPresented = true
@@ -70,16 +41,8 @@ public struct FleetHubView: View {
 
             Divider()
 
-            // Main Content
-            Group {
-                switch selectedTab {
-                case .overview:
-                    fleetOverviewTable
-                case .serialProfiles:
-                    serialProfilesView
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            fleetOverviewTable
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 640, minHeight: 460)
         .sheet(isPresented: $isImportPresented) {
@@ -87,6 +50,27 @@ public struct FleetHubView: View {
         }
         .onAppear {
             fleet.refreshFromLibrary()
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await refreshFleetWhileActive()
+        }
+    }
+
+    /// This task belongs to the Fleet sheet, so SwiftUI cancels it when the
+    /// sheet closes. Changing the app scene to inactive cancels it as well.
+    private func refreshFleetWhileActive() async {
+        await fleet.pingAll()
+
+        while !Task.isCancelled {
+            do {
+                try await Task.sleep(nanoseconds: 10_000_000_000)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+            await fleet.pingAll()
         }
     }
 
@@ -145,61 +129,10 @@ public struct FleetHubView: View {
                             .cornerRadius(4)
                         }
 
-                        if let days = node.certificateDaysRemaining {
-                            HStack(spacing: 2) {
-                                Image(systemName: "lock.shield")
-                                    .font(.system(size: 9))
-                                Text("\(days)d cert")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundStyle(days < 30 ? .red : .secondary)
-                        }
                     }
                     .padding(.vertical, 4)
                 }
             }
-        }
-    }
-
-    // MARK: - Serial Hardware Profiles
-
-    private var serialProfilesView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("NETWORK HARDWARE SERIAL CONSOLE PRESETS")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
-
-                ForEach(SerialHardwareManufacturer.allCases) { prof in
-                    HStack(spacing: 12) {
-                        Image(systemName: "cable.connector.horizontal")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color.accentColor)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(prof.rawValue)
-                                .font(.system(size: 13, weight: .semibold))
-                            Text("Baud: \(prof.defaultBaudRate) | Line delay: \(prof.recommendedLineDelayMs)ms | Char delay: 2ms")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Text("Recommended")
-                            .font(.system(size: 10, weight: .medium))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.12))
-                            .foregroundStyle(Color.accentColor)
-                            .clipShape(Capsule())
-                    }
-                    .padding(10)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .cornerRadius(8)
-                }
-            }
-            .padding(16)
         }
     }
 

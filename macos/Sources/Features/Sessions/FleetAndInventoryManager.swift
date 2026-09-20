@@ -150,7 +150,6 @@ public struct FleetNodeHealth: Identifiable, Equatable, Sendable {
     public var latencyMs: Double?
     public var lastSeen: Date?
     public var activeTunnelsCount: Int
-    public var certificateDaysRemaining: Int?
 
     public init(
         id: UUID,
@@ -159,8 +158,7 @@ public struct FleetNodeHealth: Identifiable, Equatable, Sendable {
         isReachable: Bool = false,
         latencyMs: Double? = nil,
         lastSeen: Date? = nil,
-        activeTunnelsCount: Int = 0,
-        certificateDaysRemaining: Int? = 365
+        activeTunnelsCount: Int = 0
     ) {
         self.id = id
         self.host = host
@@ -169,7 +167,6 @@ public struct FleetNodeHealth: Identifiable, Equatable, Sendable {
         self.latencyMs = latencyMs
         self.lastSeen = lastSeen
         self.activeTunnelsCount = activeTunnelsCount
-        self.certificateDaysRemaining = certificateDaysRemaining
     }
 }
 
@@ -194,8 +191,7 @@ public final class FleetManager: ObservableObject {
                 isReachable: true,
                 latencyMs: Double.random(in: 12.0...48.0),
                 lastSeen: Date(),
-                activeTunnelsCount: s.portForwards.count,
-                certificateDaysRemaining: Int.random(in: 30...360)
+                activeTunnelsCount: s.portForwards.count
             )
         }
     }
@@ -210,43 +206,5 @@ public final class FleetManager: ObservableObject {
             fleetNodes[i].lastSeen = Date()
         }
         isScanning = false
-    }
-}
-
-// MARK: - 3. Serial Manufacturer Profiles & Paste Protection
-
-public enum SerialHardwareManufacturer: String, CaseIterable, Identifiable, Sendable {
-    case cisco = "Cisco IOS / Catalyst"
-    case juniper = "Juniper JunOS"
-    case arista = "Arista EOS"
-    case mikrotik = "MikroTik RouterOS"
-    case generic = "Generic RS-232 / 485"
-
-    public var id: String { rawValue }
-
-    public var defaultBaudRate: Int {
-        switch self {
-        case .cisco, .generic: return 9600
-        case .juniper: return 9600
-        case .arista, .mikrotik: return 115200
-        }
-    }
-
-    public var recommendedLineDelayMs: Int {
-        switch self {
-        case .cisco: return 50
-        case .juniper: return 30
-        case .arista: return 10
-        case .mikrotik: return 20
-        case .generic: return 50
-        }
-    }
-
-    public func createConfig(devicePath: String) -> SerialConnectionConfig {
-        var config = SerialConnectionConfig.default(for: devicePath, name: rawValue)
-        config.baudRate = defaultBaudRate
-        config.lineDelayMs = recommendedLineDelayMs
-        config.charDelayMs = 2
-        return config
     }
 }
